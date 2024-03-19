@@ -877,8 +877,11 @@ def loglike(x, dict_save_run, dict_save_vars):
                     [f"ipmin_{num_key}"]
                 ipmax_i = dict_topo_obs[f"topo_obs_{num_key}"] \
                     [f"ipmax_{num_key}"]
+                # Minimum y_obs value.
+                y_obs_min_i = dict_topo_obs[f"topo_obs_{num_key}"] \
+                    [f"y_obs_min_{num_key}"]
                 # Align the simulation with topo_obs.
-                x_n, y_n = align(x, y, ipmin_i, ipmax_i)
+                x_n, y_n = align(x, y, ipmin_i, ipmax_i, y_obs_min_i)
                 # Store them in a dictionary for posterior predictions.
                 dict_pred = {
                     f"x_{num_key}" : x_n,
