@@ -1,0 +1,85 @@
+# python packages required in the environment:
+numpy
+matplotlib
+xarray-simlab (https://xarray-simlab.readthedocs.io/en/latest/installing.html)
+jupyterlab    
+cmcrameri 
+math
+os (for loops only)
+
+##############################################
+
+Installation:
+
+-------------
+
+- Create a dedicated working directory (yourpath)
+
+- Untar the xsREEF and SLcurves archives in this directory
+
+- Create an environment with the packages above
+
+- Add the path of the scripts directory in your PATH variable
+    export PYTHONPATH="yourpath/xsREEF" (macOS)
+    
+- In the xsREEF directory, edit Dicts.py to change the absolute paths in variables:
+    - self.path_SLcurves (L14) for the storage directory for ASL reconstructions
+    - self.path_zarr (L15) for the storage directory for zarr archives
+
+If you want to run the simulation on a shorter duration (for xxky to now), you have to create an appropriate SL file (for now...).
+
+##############################################
+
+Storage of simulations should be different depending on the set of output vars and their timestep. Storage mode must be defined as attribute in the input dataset (store).
+
+- To plot stratigraphic cross-section or realize sedimentary budgets:
+    Set output_vars in input dataset as :
+
+    output_vars={
+        'init__x'       : None,
+        'profile__z'    : 'time',
+        'sealevel__asl' : 'time',
+        'profile__xmin' : None,
+        'profile__xmax' : None,
+        'depot__dS'     : 'time',
+        'construct__dG' : 'time',
+        'eros__dE'      : 'time',
+    }
+    
+    Set store as 'Profile' in ZarrName
+    
+- To keep only the minimum data (last topographic profiles and sea level elevation):
+    Set output_vars in input dataset as :
+
+    output_vars={
+        'init__x'       : None,
+        'profile__z'    : None,
+        'sealevel__asl' : None,
+        'profile__xmin' : None,
+        'profile__xmax' : None,
+    }
+    
+    Set store as 'LastProfile' in ZarrName
+    
+- No other mode implemented so far.
+
+    store : str
+        String for path and filename
+        - 'Profile' is for simulations with topographic profiles (profile__z) 
+            and clastics (depot__dS) at each timestep, and final sea-level 
+            elevation (sealevel__asl) and profile boundaries.
+            (profile__xmin, profile__xmax), at least.
+        - 'LastProfile' is for the basic run output storage, with last 
+        profile__z, sealevel__asl, profile__xmin and profile__xmax.
+        
+##############################################
+
+To make an animation run Aim....ipynb to create the images 
+In a terminal, run
+ffmpeg -framerate 10 -i namefigs%4d.png namemovie.mp4
+
+
+##############################################
+
+Trucs à changer à la fin:
+Nom de la variable RSLin en ASLin

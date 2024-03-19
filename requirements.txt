@@ -1,0 +1,10 @@
+numpy
+matplotlib
+dask 
+distributed
+cmcrameri
+xarray
+xarray-simlab
+scipy
+seaborn
+mpi4py
