@@ -57,6 +57,8 @@ class Dicos():
             'init__zterr'      : 0,
             'init__lterr'      : 0,
             'init__sloplat'    : 3,
+            'init__wavelength' : 0,
+            'init__amplitude'  : 0,
             
             'vertical__u'      : 5,
             
@@ -221,6 +223,9 @@ class Dicos():
             'grid__slopi'        : 'Initial slope (%)',
             'init__zterr'        : 'Elevation of antecedent terrace (m)',
             'init__lterr'        : 'Length of antecedent terrace (m)',
+            'init__sloplat'      : 'Slope of the platform (%)',
+            'init__wavelength'   : 'Wavelength of the sinusoidal topo (m)',
+            'init__amplitude'    : 'Amplitude of the sinusoidal topo (m)',
             
             
             'vfactor__Iratio'    : 'I0 / Ik ratio',
@@ -251,6 +256,8 @@ class Dicos():
             'init__sloplat'     : 1e2,
             'init__zterr'       : 1,
             'init__lterr'       : 1,
+            'init__wavelength'  : 1,
+            'init__amplitude'   : 1,
             
             'time'             : 1e-3,
             
@@ -281,7 +288,10 @@ class Dicos():
 
             'init__zterr'      : 'm',
             'init__lterr'      : 'm',
-            
+            'init__wavelength' : 'm',
+            'init__amplitude'  : 'm',
+            'init__sloplat'    : '%',
+
             'time'             : 'ky',
             
             'vertical__u'      : ' mm/y',
@@ -332,7 +342,10 @@ class Dicos():
             'eros__Ev'         : 'Eroded volume',
             'eros__hwb'        : 'Wave base',
             'init__zterr'      : 'Zterr',
-            'init__lterr'      : 'Lterr'
+            'init__lterr'      : 'Lterr',
+            'init__wavelength' : 'Wavelength',
+            'init__amplitude'  : 'Amplitude',
+            'init__sloplat'    : 'Sloplat',
             
         }
         
@@ -348,6 +361,8 @@ class Dicos():
             'init__zterr'      : 'Zterr',
             'init__lterr'      : 'lterr',
             'init__sloplat'    : 'sloplt',
+            'init__wavelength' : 'wvl',
+            'init__amplitude'  : 'U',
 
             'construct__Gm'    : 'Gm',            
             'vfactor__Iratio'  : 'I0 / Ik',
