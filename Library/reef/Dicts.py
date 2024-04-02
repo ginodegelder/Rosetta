@@ -52,7 +52,7 @@ class Dicos():
             'SLstory__t_stand' : 0,
             
             'grid__slopi'      : 3,
-            'grid__hmax'       : 0,
+            'grid__dmax'       : 0,
             
             'init__zterr'      : 0,
             'init__lterr'      : 0,
@@ -61,6 +61,7 @@ class Dicos():
             'vertical__u'      : 5,
             
             'construct__Gm'    : 4,
+            'construct__hmax'  : 0,
             'hfactor__Dbar'    : 0,
             'hfactor__how'     : 0,
             
@@ -211,7 +212,8 @@ class Dicos():
             'grid__slopi'        : 'Initial slope (%)',
 
             'construct__Gm'      : 'Reef growth rate (mm/y)',
-            'grid__hmax'         : 'Max water height for growth (m)',
+            'grid__dmax'         : 'Grid for erosion (m)',
+            'construct__hmax'    : 'Max water height for growth (m)',
             'hfactor__Dbar'      : 'Wave surge (m)',
             'hfactor__how'       : 'Depth of open ocean (m)',
             'eros__Ev'           : 'Erosion rate (mm/y)',
@@ -256,12 +258,13 @@ class Dicos():
             'SLstory__t_trans' : 1e-3,
             'SLstory__t_stand' :1e-3,
             
-            'grid__hmax'        : 1,
+            'grid__dmax'        : 1,
             'grid__slopi'       : 1e2,
                         
             'vertical__u'       : 1e3,
             
             'construct__Gm'      : 1e3,
+            'construct__hmax'   : 1,
             'vfactor__Iratio'   : 1,
             'vfactor__k'        : 1,
             'hfactor__how'      : 1,
@@ -286,7 +289,8 @@ class Dicos():
             'grid__slopi'      : '%',
 
             'construct__Gm'     : ' mm/y',
-            'grid__hmax'       : ' m',
+            'construct__hmax'  : 'm',
+            'grid__dmax'       : 'm',
             'construct__delta' : 'm',
             
             'vfactor__Iratio'  : '...',
@@ -310,8 +314,9 @@ class Dicos():
             'grid__slopi'      : 'Slope',
 
             'construct__Gm'     : 'Gm',
-            'grid__hmax'       : 'hmax',
+            'grid__dmax'       : 'dmax',
             'construct__delta' : 'delta',
+            'construct__hmax' : 'hmax',
 
             'Reef_Width'       : 'Reef width (km)',
             'Total_Width'      : 'Total width (km)',
@@ -337,7 +342,8 @@ class Dicos():
             'vertical__u'      : 'u',
 
             'grid__slopi'      : 'slopi',
-            'grid__hmax'       : 'hmax',
+            'grid__dmax'       : 'dmax',
+            'construct__hmax'  : 'hmax',
             
             'init__zterr'      : 'Zterr',
             'init__lterr'      : 'lterr',

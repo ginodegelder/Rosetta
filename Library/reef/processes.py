@@ -1,9 +1,12 @@
 import numpy as np
 import xsimlab as xs
-from tools import Volume, readfile
-from tools_models import shore
-from math import log10, prod, exp, floor
+from tools import shore, readfile, apply_mask_nb
+from math import log10, exp, floor
 from Dicts import Dicos
+from functools import reduce
+from PythranTools import Volume, vertical_eros, fill_nodes, limits
+
+
 
 #*********************************************************************
 #*********************************************************************
@@ -19,7 +22,7 @@ class SeaLevel:
         
     def run_step(self):
 
-        self.asl = sum((asl for asl in self.asl_vars))
+        self.asl = np.sum(self.asl_vars, axis=0)
         
 #*********************************************************************
 
@@ -46,8 +49,8 @@ class SLFile:
     @xs.runtime(args=('step_start'))
     def run_step(self, t):
     
-        #if t % 100000 == 0:
-        #    print('t', t/1000)
+        if t % 100000 == 0:
+           print('t', t/1000)
         # Interpolates SL for the timestep
         self.asl_file = np.interp(t, self.t_in, self.asl_in)  
         
@@ -138,7 +141,7 @@ class ProfileZ:
     def run_step(self):
         
         # Runs the processes associated with profile evolution
-        self._delta_z = sum((z for z in self.z_vars))
+        self._delta_z = np.sum(self.z_vars, axis=0)
 
     @xs.runtime(args=('step_delta', 'sim_start', 'sim_end'))
     def finalize_step(self, dt, t, tmax):
@@ -147,11 +150,12 @@ class ProfileZ:
         self.z += self._delta_z
                   
         # Actualising profile boundaries        
-        if len(self.x[np.abs(self._delta_z - self.u*dt) >= 1e-4]) != 0:
+        condition_x = self.x[np.abs(self._delta_z - self.u*dt) >= 1e-4]
+        if len(condition_x) != 0:
             
             self.xmin = min(
                 self.xmin, 
-                np.min(self.x[np.abs(self._delta_z - self.u*dt) >= 1e-4]))
+                np.min(condition_x))
             
             self.xmax = max(
                     self.xmax,
@@ -200,6 +204,9 @@ class InitTopoTerr:
 
     zterr = xs.variable(description="Elevation of antecedent terrace", attrs={"units":"m"})
     lterr = xs.variable(description="Length of antecedent terrace", attrs={"units":"m"})
+    sloplat = xs.variable(description = "Terrace's slope", attrs={"units":"%"})
+    wavelength = xs.variable(description = "Sinus noise wavelength", attrs={"units":"m"})
+    amplitude = xs.variable(description = "Ampliyude of terrace's noise elevation", attrs={"units":"m"})
     
     xmin = xs.foreign(ProfileZ, 'xmin', intent='out')
     xmax = xs.foreign(ProfileZ, 'xmax', intent='out')
@@ -220,10 +227,19 @@ class InitTopoTerr:
         else:
             self.z = self.slopi * self.x -(700+self.dmax)
             
+        # Extracts platform's x bounds
+        end = np.argmax(self.z >= self.zterr)
+        start = max(50, end-int(self.lterr))
+        # self.z[start:end] = self.zterr
+
+        t=np.arange(self.lterr) # Platform's x values
+        U=self.amplitude*np.sin(2*np.pi*t/self.wavelength) # Platform's sinusoid values
         # Terracing
-        fin = np.argmax(self.z >= self.zterr)
-        deb = max(50, fin-int(self.lterr))
-        self.z[deb:fin] = self.zterr
+        self.z[start:end] = self.zterr + np.arange(end-start) * self.sloplat - (end-start) * self.sloplat + U
+        # Fill the potential cliff facing the coast
+        if U[-1] > 0:
+            self.z[end-1 + np.where(self.z[end-1:]<self.z[end-1])] = self.z[end-1]
+            
         
 #*********************************************************************
 
@@ -297,11 +313,12 @@ class Construction:
 
     @xs.runtime(args=("step_delta"))
     def run_step(self, dt):
-        
-        self.dG = self.Gm * dt * prod(( g for g in self.Gf_vars ))
+
+        self.dG = self.Gm * dt * reduce(lambda x, y: x * y, self.Gf_vars)
         
         # Limitation of reef growth by sea level        
-        self.dG[(self.x <= self.x[self.riv]) & (self.dG > self.dh-0.1)] = self.dh[(self.x <= self.x[self.riv]) & (self.dG > self.dh-0.1)]-0.1 # Number 2
+        mask = (self.x <= self.x[self.riv]) & (self.dG > self.dh-0.1)        
+        self.dG[mask] = self.dh[mask]-0.1 # Number 2
         self.dG[self.dG<0]=0.
         
 #*********************************************************************
@@ -320,7 +337,8 @@ class MyVerticalFactor:
     def run_step(self):
 
         self.Vf = np.zeros(self.x.size)
-        self.Vf[(self.dh <= self.hmax) & (self.x <= self.x[self.riv])] = (1.+np.cos(np.pi*self.dh[(self.dh <= self.hmax) & (self.x <= self.x[self.riv])]/self.hmax))/2
+        mask = (self.dh <= self.hmax) & (self.x <= self.x[self.riv])
+        self.Vf[mask] = (1. + np.cos(np.pi * self.dh[mask] / self.hmax)) / 2
 
 #*********************************************************************
 
@@ -346,7 +364,9 @@ class MyHorizontalFactor:
 
         # Horizontal factor
         self.Hf = np.zeros(self.x.size)
-        self.Hf[self.x <= self.x[self.riv]] = (np.tanh((self.xow-self.x[self.x <= self.x[self.riv]])/self.Dbar)+1)/2
+        
+        mask = self.x <= self.x[self.riv]
+        self.Hf[mask] = (np.tanh((self.xow-self.x[mask])/self.Dbar)+1)/2
 
 #*********************************************************************
 @xs.process
@@ -415,27 +435,13 @@ class ErosionConst:
         self.start_eros = np.argmax(self.dh<=self.hwb)
               
         # Vertical sea-bed erosion
-        j=self.start_eros
-        while j<=self.riv:
-
-            # Is there enough wave energy left to erode the sea-bed ?
-            if Vrest > eps:   
-                # Is water height still lower than wave base height ? In case of lagoons
-                if self.dh[j] <= self.hwb:
-                    
-                    # Saving temporary profile for volume
-                    tmp=self.z[j-1:j+2]+self.dE[j-1:j+2]
-                    # Computing sea-bed lowering
-                    self.dE[j] = -Vrest*exp(-self.dh[j]/hwbb)*self.beta1
-                    # Substracting eroded volume to the total erodible volume
-                    Vrest += Volume(tmp, self.z[j-1:j+2]+self.dE[j-1:j+2]).sum()
-
-                j +=1            
-            else:
-            # No more wave energy
-                Vrest = 0.
-                break
-
+        i=self.start_eros
+        test = np.empty(len(self.dh))
+        test[i:self.riv+1] = np.exp(-self.dh[i:self.riv+1]/hwbb)*self.beta1
+        Vrest, self.dE = vertical_eros(i, self.riv, Vrest, eps,
+                                            self.dh, self.hwb, self.z,
+                                            self.dE, test)
+        
         # Cliff retreat
         if Vrest > 0:
             # Starts at first terrestrial node
@@ -482,8 +488,8 @@ class ErosionConst:
                 else:
                     j+=1
         
-        if abs(self.dE.sum() - self.cr_mem[j]) < self.Ev*dt/2:
-            print('New WTF, t', t, 'dE', self.dE.sum(), 'crmem', self.cr_mem[j])
+        # if abs(self.dE.sum() - self.cr_mem[j]) < self.Ev*dt/2:
+        #     print('New WTF, t', t, 'dE', self.dE.sum(), 'crmem', self.cr_mem[j])
             
 #*********************************************************************
 
@@ -522,27 +528,13 @@ class ErosOnly:
         self.start_eros = np.argmax(self.dh<=self.hwb)
               
         # Vertical sea-bed erosion
-        j=self.start_eros
-        while j<=self.riv:
-
-            # Is there enough wave energy left to erode the sea-bed ?
-            if Vrest > eps:   
-                # Is water height still lower than wave base height ? In case of lagoons
-                if self.dh[j] <= self.hwb:
-                    
-                    # Saving temporary profile for volume
-                    tmp=self.z[j-1:j+2]+self.dE[j-1:j+2]
-                    # Computing sea-bed lowering
-                    self.dE[j] = -Vrest*exp(-self.dh[j]/hwbb)*self.beta1
-                    # Substracting eroded volume to the total erodible volume
-                    Vrest += Volume(tmp, self.z[j-1:j+2]+self.dE[j-1:j+2]).sum()
-
-                j +=1            
-            else:
-            # No more wave energy
-                Vrest = 0.
-                break
-
+        i=self.start_eros
+        test = np.empty(len(self.dh))
+        test[i:self.riv+1] = np.exp(-self.dh[i:self.riv+1]/hwbb)*self.beta1
+        Vrest, self.dE = vertical_eros(i, self.riv, Vrest, eps,
+                                            self.dh, self.hwb, self.z,
+                                            self.dE, test)
+        
         # Cliff retreat
         if Vrest > 0:
             # Starts at first terrestrial node
@@ -589,8 +581,8 @@ class ErosOnly:
                 else:
                     j+=1
         
-        if abs(self.dE.sum() - self.cr_mem[j]) < self.Ev*dt/2:
-            print('New WTF, t', t, 'dE', self.dE.sum(), 'crmem', self.cr_mem[j])
+        # if abs(self.dE.sum() - self.cr_mem[j]) < self.Ev*dt/2:
+        #     print('New WTF, t', t, 'dE', self.dE.sum(), 'crmem', self.cr_mem[j])
             
 
 #*********************************************************************
@@ -616,6 +608,7 @@ class SedimClastics():
     dE = xs.foreign(ErosionConst, 'dE')
     asl = xs.foreign(SeaLevel, 'asl')
     xmin = xs.foreign(ProfileZ, 'xmin')
+
         
     @xs.runtime(args=('step_start'))
     def run_step(self, t):
@@ -623,41 +616,47 @@ class SedimClastics():
         # Variables initialisation
         self.dS=np.zeros(len(self.z))
         self.t = t
-        self.Vsed=np.zeros(len(self.z))
+        self.Vsed=np.empty(len(self.z))
         self.z_tmp = self.z + self.dE + self.dG
+        # self.dS_init = np.copy(self.dS)
+        # self.z_tmp_init = np.copy(self.z_tmp) #+ self.dS_init
         self.riv = shore(self.asl, self.z_tmp)
+        self.len_z_plus1 = len(self.z)+1
                     
         # Computing total eroded volume
         self.Vsed = Volume(self.z, self.z-self.dE)
-
         # First round of deposition shorewards
         self.SedimLagoonDyn()
-        if np.any(self.dS<0):
-            print('MERDE LAGOON !')
+        
+        self.z_tmp_init = self.z_tmp.copy()
+        # if np.any(self.dS<0):
+        #     print('MERDE LAGOON !')
             
         # Starting repose deposition from deb (hwb), at least for now...
         self.Vtot = self.Vsed.sum()
+        
         slop=np.diff(self.z_tmp)
-        start_lay = self.start_eros-1 - np.argmax((slop[self.start_eros-1:0:-1] < self.repos) & (self.z_tmp[self.start_eros-1:0:-1] < self.z_tmp[self.start_eros]))     
+        start_lay = self.start_eros-1 - np.argmax((slop[self.start_eros-1:0:-1] < self.repos) & (self.z_tmp[self.start_eros-1:0:-1] < self.z_tmp[self.start_eros]))  
 
-        #Remplissage par depocentre
+        Slop_round = round(slop[1], 2)
+        arr_to_fill = np.arange(self.start_eros+1) * self.repos 
+        ln_to_fill = len(arr_to_fill) 
+        # self.j_save = np.empty(0, dtype = "int")
         while (start_lay > 0) & (self.Vtot > 0):
             
             if slop[start_lay] <= self.repos:
-
-                # Remplissage couche par couche
                 while (slop[start_lay]<=self.repos) & (self.Vtot > 0):
 
-                    # remplissage de la couche, noeud par noeud    
-                    self.FillLayer(start_lay)
+                    lay_to_fill = arr_to_fill[:ln_to_fill-start_lay]                    
+                    self.FillLayer(start_lay, lay_to_fill)
                     start_lay-=1
-                    
                     # Get out of the loop if initial slope > repose angle and no more construction/erosion below
-                    if round(slop[1], 2) >= self.repos:
+                    if Slop_round >= self.repos:
                         if start_lay < self.xmin:
                             # On perd tous les sédiments
-                            self.Vtot=0
-                            break
+                            self.Vtot = 0.
+                            break                
+                
             else:
                 start_lay-=1
                 
@@ -666,75 +665,38 @@ class SedimClastics():
                 
 #*********************************************************************
 
-    def FillLayer(self, dep):
+    def FillLayer(self, dep, lay):
         """ Fills a layer of sediment along a repose angle from a starting point (dep)
             Limited by hwb or topography """
 
         
         # Variables initialisation
         ddS=self.repos                                            # Sediment thickness deposited at each node, to modify to be able to scale dx
+
+        # mask = np.where(self.dS!=0)
+        # self.z_tmp[mask] = self.z_tmp_init[mask] + self.dS[mask] 
         
-        self.z_tmp = self.z + self.dE + self.dG + self.dS
-        Fut_z = self.z_tmp[dep] + np.arange(self.start_eros-dep+1) * self.repos
+        self.z_tmp = apply_mask_nb(self.z_tmp, self.z_tmp_init, self.dS)      
         
-        if len(Fut_z) != len(self.z_tmp[dep:self.start_eros+1]):
-            print('... dep', dep, 'start_eros', self.start_eros)
-            
-        # Limitation by topography ?
-        lim_topo = np.argmax(Fut_z < self.z_tmp[dep:self.start_eros+1])-1
-        if lim_topo <= 0:
-            lim_topo = len(self.z)+1
-            
-        lim_hwb = np.argmax(Fut_z >= self.z_tmp[self.start_eros])
-        if (lim_hwb <= 0): 
-            
-            if (lim_topo == len(self.z)+1):
-                return
-            else:
-                lim_hwb = len(self.z)+1
-                    
-        end = dep + min(lim_topo, lim_hwb)
-        Fut_z = Fut_z[:end-dep+1]
-        Fut_z[-1] = max(
-                min(Fut_z[-1], self.z_tmp[self.start_eros]),
-                self.z_tmp[end]
-        )
+        Fut_z = self.z_tmp[dep] + lay
+        end, Fut_z = limits(Fut_z, self.z_tmp, self.len_z_plus1, self.start_eros, dep)
+
+        if end == True:
+            return        
         
-        Vol_layer = Volume(self.z_tmp[dep:end+1], Fut_z).sum()
-        
+        cut_z_tmp = self.z_tmp[dep:end+1]
+
+        Vol_layer = Volume(cut_z_tmp, Fut_z).sum()
+
         # Is there enough sediments ?
         if Vol_layer <= self.Vtot:
-            self.dS[dep:end+1] += (Fut_z - self.z_tmp[dep:end+1])
-            self.Vtot -= Vol_layer
-            if np.any(self.dS <0):
-                print('MERDE ! Whole layer', Fut_z - self.z_tmp[dep:end+1])
-                print('dep', dep, 'end', end, 'lim_topo', lim_topo, 'lim_hwb', lim_hwb)
-            
+            self.dS[dep:end+1] += (Fut_z - cut_z_tmp) 
+            self.Vtot -= Vol_layer  
+        
         else:
-            # Filling the layer node by node until no sediment remains
-            for j in range (dep+1, end+1):
-                Fut_zj = self.z_tmp[j-1:j+2].copy()
-                if len (Fut_zj) == 0:
-                    print('Why ??? t', self.t, j-1, j+2)
-                Fut_zj[1] = Fut_zj[0] + ddS
-
-                # Is there enough sediments ?
-                Vol_node = Volume(self.z_tmp[j-1:j+2], Fut_zj).sum()
-                
-                if self.Vtot >= Vol_node: 
-                    self.dS[j] += (Fut_zj[1] - self.z_tmp[j])
-                    if np.any(self.dS <0):
-                        print('MERDE ! Vol_layer') #, Vol_layer, 'Vtot', self.Vtot, Fut_zj[1] - self.z_tmp[j], Fut_zj[1], self.z_tmp[j], np.argmax(Fut_z < self.z_tmp[dep:self.start_eros]), end)
-                        
-                    self.z_tmp[j] = Fut_zj[1]
-                    self.Vtot -= Vol_node
-
-                    
-
-                # No
-                else:    
-                    self.Vtot = 0.
-                    return
+            # Filling the layer node by node until no sediment remains  ## j_save as inout, store in loop
+            self.Vtot, self.dS, self.z_tmp = fill_nodes(
+                dep, end, self.z_tmp, ddS, self.Vtot, self.dS)
                 
 #*********************************************************************
 
@@ -869,7 +831,8 @@ class SedimClastics():
         tmp = self.Vsed[ju0:ju1+1].sum()
         self.Vsed[ju0:ju1+1]=0
         self.Vsed[jfd] = tmp
-        
+
+        dh_tmp_0 = self.z_tmp[ju0:ju1+1]+self.dS[ju0:ju1+1]
         # Defining the spilling point
         spill = ju0
         if self.z_tmp[ju0]+self.dS[ju0] > self.z_tmp[ju1]+self.dS[ju1]:
@@ -877,12 +840,12 @@ class SedimClastics():
             
         # Is there enough sediment to fill the hole ?
         tmp_z = self.FlatHole(ju0, ju1, self.z_tmp[spill])
-        Vol_hole = Volume(self.z_tmp[ju0:ju1+1]+self.dS[ju0:ju1+1], tmp_z).sum()
+        Vol_hole = Volume(dh_tmp_0, tmp_z).sum()
         
         # Yes
         if self.Vsed[jfd] > Vol_hole:
             self.Vsed[jfd] -= Vol_hole
-            self.dS[ju0:ju1+1] += tmp_z - (self.z_tmp[ju0:ju1+1]+self.dS[ju0:ju1+1])
+            self.dS[ju0:ju1+1] += tmp_z - dh_tmp_0
                 
         # No, Boucle pour trouver jusqu'ou remplir le trou
         else:
@@ -898,21 +861,21 @@ class SedimClastics():
                 dth = 10**th
                 n_lay=1
                 dh_tmp = self.FlatHole(ju0, ju1, h_sed + dth)
-                Vol_layers = Volume(self.z_tmp[ju0:ju1+1]+self.dS[ju0:ju1+1], dh_tmp).sum()
+                Vol_layers = Volume(dh_tmp_0, dh_tmp).sum()
 
                 while Vol_layers < self.Vsed[jfd]:
                     n_lay +=1
 
                     # Preparing next Vol_layers test                
                     dh_tmp = self.FlatHole(ju0, ju1, h_sed + n_lay*dth)
-                    Vol_layers = Volume(self.z_tmp[ju0:ju1+1]+self.dS[ju0:ju1+1], dh_tmp).sum()
+                    Vol_layers = Volume(dh_tmp_0, dh_tmp).sum()
                 else:
                     h_sed += (n_lay-1)*dth
                 
             tmp_z = self.FlatHole(ju0, ju1, h_sed)
             self.Vsed[jfd] -= Volume(self.z[ju0:ju1+1]+self.dS[ju0:ju1+1], tmp_z).sum()    
             # Fill the hole up to hsed
-            self.dS[ju0:ju1+1] += tmp_z - (self.z_tmp[ju0:ju1+1]+self.dS[ju0:ju1+1])
+            self.dS[ju0:ju1+1] += tmp_z - dh_tmp_0
             
             spill =0
             
@@ -920,8 +883,9 @@ class SedimClastics():
 
     #*********************************************************************
     
-    def FlatHole(self, j0, j1, elev):
+    def FlatHole(self, j0, j1, elev): #(self, dh_tmp_0, elev):
         
+        #dh_tmp_0[dh_tmp_0< elev] = elev
         dh_tmp = self.z_tmp[j0:j1+1] + self.dS[j0:j1+1]
         dh_tmp[dh_tmp< elev] = elev
         

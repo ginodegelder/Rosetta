@@ -273,10 +273,13 @@ def ModelParameters(model_name):
     """
 
     if model_name == 'reef':
-        return ['vertical__u', 'grid__slopi', 'construct__Gm', 'grid__hmax', 'hfactor__Dbar', 'hfactor__how', 'eros__Ev', 'eros__hwb']
+        return ['vertical__u', 'grid__slopi', 'construct__Gm', 'grid__dmax', 'construct__hmax', 'hfactor__Dbar', 'hfactor__how', 'eros__Ev', 'eros__hwb']
 
     elif model_name == 'reef_platform':
-        return ['vertical__u', 'grid__slopi', 'construct__Gm', 'grid__hmax', 'hfactor__Dbar', 'hfactor__how', 'eros__Ev', 'eros__hwb', 'init__zterr', 'init__lterr']
+        return ['vertical__u', 'grid__slopi', 'construct__Gm', 'grid__dmax', 'construct__hmax', 'hfactor__Dbar', 'hfactor__how', 'eros__Ev', 'eros__hwb', 'init__zterr', 'init__lterr']
+        
+    elif model_name == 'reef_eros':
+        return ['vertical__u', 'grid__slopi', 'grid__dmax', 'hfactor__how', 'eros__Ev', 'eros__hwb']    
 
     else:
         print('Arbeit !')
@@ -318,6 +321,7 @@ def ZarrName(ds):
     
     # List of model parameters to use
     params = ModelParameters(ds.model_name)
+    print(ds.model_name)
     
     # Loop on parameters to be added to the filename
     for p in params:

@@ -1,64 +1,10 @@
 import numpy as np
 from io import StringIO
 from os import path
+import numba as nb
 
 
 #********************************************************************************************
-#********************************************************************************************
-
-def Volume(z1, z2):
-    """
-    Measures the area between 2 profiles
-    First and last points have the same elevation
-    
-    Parameters:
-    -----------
-    
-    z1, z2: 1d-array
-        Topographic profiles: z2 younger than z1
-    
-    Returns:
-    --------
-    
-    V: 1d-array
-        Array of volume along the given profile
-    """
-
-    V=np.zeros(len(z1))
-
-    if len(z1)>1:
-
-#         for j in range(0, len(z1)-1):
-#             V[j] = (z2[j]-z1[j]+z2[j+1]-z1[j+1])*dx/2
-        V = (z2[:-1]+z2[1:] - z1[:-1] - z1[1:])/2
-        
-    return V
-
-#*********************************************************************
-
-def FindKey(v, dic): 
-    """
-    Finds the key for a given value in a directory
-    
-    Parameters:
-    -----------
-    
-    v : datatype as in the values of the dictionary...
-        Value to look for
-    dic : Dictionary
-        Dictionary in which to look for
-        
-    Returns:
-    --------
-    
-    k: datatype as in the keys of the dictionary
-        Key corresponding to the input value
-    """
-    
-    for k, val in dic.items(): 
-        if v == val: 
-            return k 
-        
 #********************************************************************************************
 
 
@@ -109,22 +55,59 @@ def readfile(name):
     return col1, col2
 
 
+
 #********************************************************************************************
 
-def CheckFile(name):
-    """ 
-    Checks if a file exists
-    
+def shore(sl, z):
+    """
+    Finds the index of the shore on a topographic profile for a given elevation of ASL
+    Shore is defined as the first node at or below sea level
+    Input values must not be xarray DataArray
+
     Parameters:
     -----------
     
-    name : str
-     (Path and) filename to check
-     
+    sl : int, float
+        Absolute sea-level elevation 
+    z : 1d-array
+        Topographic profile
+        
     Returns:
     --------
-    
-    boolean
+    int: Index of the first node at or below sea level
     """
     
-    return path
+    return np.argmax(z>sl)-1
+
+@nb.njit#(fastmath=True)
+def apply_mask_nb(z_tmp, z_tmp_init, dS):
+    for i in range(len(dS)):
+        if dS[i] != 0:
+            z_tmp[i] = z_tmp_init[i] + dS[i]
+    return z_tmp
+
+
+# def FindKey(v, dic): 
+#     """
+#     Finds the key for a given value in a directory
+    
+#     Parameters:
+#     -----------
+    
+#     v : datatype as in the values of the dictionary...
+#         Value to look for
+#     dic : Dictionary
+#         Dictionary in which to look for
+        
+#     Returns:
+#     --------
+    
+#     k: datatype as in the keys of the dictionary
+#         Key corresponding to the input value
+#     """
+    
+#     for k, val in dic.items(): 
+#         if v == val: 
+#             return k 
+
+
