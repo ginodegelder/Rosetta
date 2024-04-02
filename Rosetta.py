@@ -78,9 +78,12 @@ if construction:
         platform = True
     else:
         platform = False
-        # If no platform, remove lterr and zterr from the dict.
+        # If no platform, remove platform's params from the dict.
         first_sub_dict.pop('init__lterr', None)
         first_sub_dict.pop('init__zterr', None)
+        first_sub_dict.pop('init__sloplat', None)
+        first_sub_dict.pop('init__wavelength', None)
+        first_sub_dict.pop('init__amplitude', None)
 else:
     reef_params = eros_params
 

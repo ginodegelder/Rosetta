@@ -90,6 +90,12 @@ construction_params = {
         'init__zterr': [-25, -35, -20, 1],
         # Length of antecedent terrace
         'init__lterr': [10000, None, None, None],
+        # Terrace's slope
+        'init__sloplat': 0.e-2,
+        # Sinus noise wavelength
+        'init__wavelength' : 2500,
+        # Sinus amplitude
+        'init__amplitude' : 10,
         },
 # =============================================================================
 #   Put here the sub-dicts with only the free parameters for other topo profile
