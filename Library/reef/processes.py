@@ -49,8 +49,8 @@ class SLFile:
     @xs.runtime(args=('step_start'))
     def run_step(self, t):
     
-        if t % 100000 == 0:
-           print('t', t/1000)
+#         if t % 100000 == 0:
+#            print('t', t/1000)
         # Interpolates SL for the timestep
         self.asl_file = np.interp(t, self.t_in, self.asl_in)  
         

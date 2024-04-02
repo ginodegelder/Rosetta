@@ -91,11 +91,11 @@ construction_params = {
         # Length of antecedent terrace
         'init__lterr': [10000, None, None, None],
         # Terrace's slope
-        'init__sloplat': 0.e-2,
+        'init__sloplat': [0.e-2, None, None, None],
         # Sinus noise wavelength
-        'init__wavelength' : 2500,
+        'init__wavelength' : [2500, 500, 4000, 25],
         # Sinus amplitude
-        'init__amplitude' : 10,
+        'init__amplitude' : [10, 0, 20, 1],
         },
 # =============================================================================
 #   Put here the sub-dicts with only the free parameters for other topo profile
@@ -114,6 +114,10 @@ construction_params = {
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
         # Elevation of antecedent terrace
         'init__zterr': [-25, -35, -20, 1],
+        # Sinus noise wavelength
+        'init__wavelength' : [2500, 500, 4000, 25],
+        # Sinus amplitude
+        'init__amplitude' : [10, 0, 20, 1],
         },
     # Another dict
     'reef_params2' : {
@@ -129,6 +133,10 @@ construction_params = {
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
         # Elevation of antecedent terrace
         'init__zterr': [-25, -35, -20, 1],
+        # Sinus noise wavelength
+        'init__wavelength' : [2500, 500, 4000, 25],
+        # Sinus amplitude
+        'init__amplitude' : [10, 0, 20, 1],
         }
     }
 
