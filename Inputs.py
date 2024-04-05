@@ -202,6 +202,9 @@ eros_params = {
 # =============================================================================
 
 inversion_params = {
+    # Restart from a preexistant. 
+    # Put the path of the model 'Out' folder or 'None'.
+    'restart' : True,
     # Number of simulations
     'n_samples' : 10, 
     # Factor to change the step size after every tune_interval simu

@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime
 from numpy.random import default_rng
 from mpi4py import MPI
+import arviz
 
 
 from .mcmc_base import MCMCBase
@@ -169,6 +170,73 @@ class Metropolis1dStep(MCMCBase):
                                     dtype=np.bool_)
         self._accept_ratios = np.zeros(self.n_vars)
 
+    def restart_arrays(self, dataset, x0, n, thin, tune, tune_interval,
+                          discard_tuning, posterior_predict):
+        self.n_vars = x0.size
+        # Results arrays
+        self.n_samples = n
+        if discard_tuning:
+            self.n_samples -= tune
+        self.n_samples = n // thin
+        # Saved samples form the saved chain.
+        saved_samples = dataset.posterior.x[0,:,:].values
+        # Initialize the array for the new samples.
+        self.samples = np.zeros((self.n_samples, self.n_vars),
+                                dtype=self.sample_dtype)
+        # Concatenate saved and new samples arrays
+        self.samples = np.concatenate((saved_samples, self.samples), axis=0)
+
+        # Saved loglikelihoods
+        save_loglike = dataset.log_likelihood.log_likelihood.values[0,:,:]
+        # Saved stats
+        stats_items = dataset.sample_stats.to_dict(data='array')['data_vars'].items()
+        save_sample_stat = {key: value['data'][0,:,:] for key, value in stats_items}
+
+        # Set self.stats as a dictionary of numpy arrays for each stat
+        for stat in self._save_stats:
+            # get the stats attributes, the second element of the list is the
+            # number of variables
+            attr = STATS[stat][1]
+            if isinstance(attr, str):
+                n_params = int(getattr(self, attr))
+            else:
+                n_params = int(attr)
+            self.stats[stat] = np.zeros((self.n_samples, n_params))
+
+            # Concat the new stats dict and the saved stats dict
+            if stat == 'loglikelihood':
+                self.stats[stat] = np.concatenate((save_loglike, self.stats[stat]), axis=0)
+            # Concatenate the values of dict_init into data_vars_dict
+            else:
+                self.stats[stat] = np.concatenate((save_sample_stat[stat], self.stats[stat]), axis=0)
+
+        # Extract the post predict keys and values of saved chain.
+        postpred_items = dataset.posterior_predictive.to_dict(data='array')['data_vars'].items()
+        # Keep only data values from the values in items.
+        save_posterior_predict = {key: value['data'] for key, value in postpred_items}
+        for key in save_posterior_predict.keys():
+            # Take only one sample from the save.
+            data_shape = save_posterior_predict[key][0,0,:].shape
+            # Create a dict of empty values for the new post predicts.
+            self.posterior_predictive[key] = np.empty((
+                self.n_chains, self.n_samples, *data_shape))
+            # Concatenate the values of save dict and empty dict.
+            self.posterior_predictive[key] = np.concatenate((
+                save_posterior_predict[key], self.posterior_predictive[key]), axis=1)
+            
+        # Update n_samples to take saved chain in account. 
+        self.n_samples += self.saved_n_samples
+
+        # Private arrays
+        self._current_iter = self.saved_n_samples + 1
+        self._recent_n_prop = np.zeros(self.n_vars, dtype=np.int32)
+        self._recent_n_accept = np.zeros(self.n_vars, dtype=np.int32)
+        self._prop_mat = np.zeros((tune_interval, self.n_vars),
+                                  dtype=np.bool_)
+        self._accept_mat = np.zeros((tune_interval, self.n_vars),
+                                    dtype=np.bool_)
+        self._accept_ratios = np.zeros(self.n_vars)
+
     def reset(self):
         """
         Function to reset the parameters learned during the sampling, such as
@@ -236,7 +304,7 @@ class Metropolis1dStep(MCMCBase):
                 self.prop_S[i] *= 1.1
                 continue
 
-    def run(self, x0, n, tune=0, tune_interval=1000,
+    def run(self, restart_folder, x0, n, Outs_path, tune=0, tune_interval=1000,
             discard_tuned_samples=False, thin=1):
         """
         Runs the algorithm.
@@ -263,28 +331,64 @@ class Metropolis1dStep(MCMCBase):
 
         """
         start_time = datetime.now()
-
-        # Initialize numpy random generator
-        rng = default_rng()
-        print("Start Metropolis1dStep")
-        print("----------------------")
-        print("number of saved samples")
-        print(self.n_samples)
-
-        x = x0
+        
         # Initializes the saving dictionnaries from one simulation to another.
         dict_save_run = {}
         dict_save_vars = {}
 
-        # Initialize likelihood, prior and saves dictionnaries
-        print("Simu initialisation")
-        self._x_loglike, posterior_predict, dict_save_run, dict_save_vars = \
-            self.loglikelihood(x, dict_save_run, dict_save_vars)
-        # Initialize predictions
-        # Initialize arrays
-        self.initialize_arrays(x0, n, thin, tune, tune_interval,
-                               discard_tuned_samples, posterior_predict)
+        if type(restart_folder) == str:
+            dataset = arviz.from_netcdf(
+                '../../Outs/FigS4d/'+restart_folder+"/MCMC_raw.nc"
+                )
+            # Number of runs for saved chain.
+            self.saved_n_samples = len(dataset.posterior.draw.values)
+            # Extract the last sample of the saved chain. Index 0 for 1 chain.
+            x0 = dataset.posterior.x[0, -1, :].values   
+            
+            # Initialize numpy random generator
+            rng = default_rng()
+            print("Start Metropolis1dStep")
+            print("----------------------")
+            print("number of saved samples")
+            print(self.saved_n_samples)
 
+            x = x0
+            # Initialize  likelihood and prior from last sample.
+            # Extract for 1 chain.
+            self._x_loglike = dataset.log_likelihood.log_likelihood[0, -1].values
+            # Extract all posterior predict in save file
+            postpred_items = dataset.posterior_predictive.to_dict(data='array')['data_vars'].items()
+            # Keep only the last arrays
+            posterior_predict = {key: value['data'][0,-1,:] for key, value in postpred_items}
+            # Empty the extraction.
+            postpred_items = None
+            #self._x_loglike, posterior_predict = self.loglikelihood(x)
+            # Re initialize arrays from saved chain.
+            self.restart_arrays(dataset, x0, n, thin, tune, tune_interval,
+                               discard_tuned_samples, posterior_predict)
+            # Close the dataset
+            del dataset
+            n_tup = (self.saved_n_samples, self.saved_n_samples+n)
+
+        else:
+            # Initialize numpy random generator
+            rng = default_rng()
+            print("Start Metropolis1dStep")
+            print("----------------------")
+            print("number of saved samples")
+            print(self.n_samples)
+    
+            x = x0
+    
+            # Initialize likelihood and prior
+            self._x_loglike, posterior_predict, dict_save_run, dict_save_vars = \
+                self.loglikelihood(x, dict_save_run, dict_save_vars)
+            # Initialize predictions
+            # Initialize arrays
+            self.initialize_arrays(x0, n, thin, tune, tune_interval,
+                               discard_tuned_samples, posterior_predict)
+            n_tup = (0, n)
+            
         x_logprior = self.logprior(x)
         if self.verbose > 1:
             print("Starting log-likelihood")
@@ -298,7 +402,7 @@ class Metropolis1dStep(MCMCBase):
         if rank == 0:
             # Start MCMC sampling
             # -------------------
-            for i in range(n):
+            for i in range(*n_tup):
     
                 if self.verbose > 1:
                     print("ITER", i)
@@ -342,7 +446,7 @@ class Metropolis1dStep(MCMCBase):
                     comm.send(compute_likelihood, dest=other_rank, tag = 2)
                     
                 if compute_likelihood:
-                    print("Simu number", self._current_iter)
+                    #print("Simu number", self._current_iter)
                     xp_loglike, prop_predict, dict_save_run, dict_save_vars = \
                         self.loglikelihood(xp, dict_save_run, dict_save_vars)
                 else:
@@ -407,6 +511,12 @@ class Metropolis1dStep(MCMCBase):
                         with np.printoptions(precision=2, suppress=True):
                             print(self.prop_S)
                         print()
+                        
+                t1 = datetime.now()
+                print(f"Iteration: {self._current_iter}/{n_tup[1]}. "\
+                      f"Mean time for one iteration: "\
+                      f"{(t1 - start_time)/(self._current_iter - n_tup[0])}",
+                      end='\r')
     
                 if self._current_iter % self.show_stats == 0:
                     self.print_stats(i_sample)
@@ -429,6 +539,11 @@ class Metropolis1dStep(MCMCBase):
                         attr = STATS[stat][0]
                         # save it to dictionnary
                         self.stats[stat][i_sample, ...] = getattr(self, attr)
+
+                # Save the chain in arviz format.
+                if self._current_iter % 1000 == 0 or self._current_iter == n_tup[1]-1:
+                    self.write_samples(Outs_path+'/MCMC_raw.nc', 
+                                       format='arviz')
     
                 # Update iter
                 self._current_iter += 1

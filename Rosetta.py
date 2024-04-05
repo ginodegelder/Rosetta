@@ -58,6 +58,7 @@ DX_REEF = inversion_params['dx_reef']
 SIGMA = inversion_params['sigma']
 CORR_L = inversion_params['corr_l']
 IPSTEP = inversion_params['ipstep']
+RESTART = inversion_params['restart']
 
 # Check if there will be something to plot.
 if STP >= N_SAMPLES:
@@ -161,7 +162,7 @@ for filename in name_files:
 # Matrixes
 
 # Number of matrix elements, round up to full number.
-N1 = int(-(-(IPMAX - IPMIN) // IPSTEP)) 
+#N1 = int(-(-(IPMAX - IPMIN) // IPSTEP)) 
 DX_COV = DX_REEF  # Here equal to 1, dependent of dx used in the reef model .
 GAMMA = 1  # Exponent in the kernel. 1 for laplacian, 2 for gaussian.
 
@@ -768,12 +769,12 @@ def run_reef(input_vars):
     ds_in.attrs['model_name'] = model_name
     
     # Run    
-    t0 = dtime.now()
+    #t0 = dtime.now()
     
     with DicoModels().models[ds_in.model_name]:
         ds = (ds_in.xsimlab.run())
         
-    print("simu rank ", rank, " duration : ", dtime.now() - t0)
+    #print("simu rank ", rank, " duration : ", dtime.now() - t0)
     
     # Extracts the last topo profile.
     x = ds.x[:].values
@@ -978,8 +979,25 @@ chain.add_stat("prop_S")
 chain.add_stat("accept_ratio")
 chain.add_stat("parameter_accept_ratio")
 
+# Create the Out folder
+if rank == 0:    
+    # Extracts time of the form day-month-year_hour.min.
+    time_output = dtime.now().strftime('%d-%m-%Y_%H.%M')     
+    # Creates a unique name with N_SAMPLES, SIGMA IPSTEP and time_output.
+    Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
+                 str(IPSTEP) + '_' + time_output)
+    # Creates a path with Folder_name.
+    Folder_path = os.path.join(os.getcwd(), 'Outs/FigS4d/' + Folder_name)
+    # Creates the directory for the Outs.
+    os.makedirs(Folder_path)
+
+    # Creates a folder to store the outputs raw data.
+    Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
+    os.makedirs(Df_folder_path)
+
 # Run the algorithm
-chain.run(x0, N_SAMPLES, tune = N_TUNE, tune_interval = TUNE_INTERVAL,
+chain.run(RESTART, x0, N_SAMPLES, Df_folder_path, tune = N_TUNE, 
+          tune_interval = TUNE_INTERVAL,
           discard_tuned_samples = False, thin = 1)
 
 
@@ -997,19 +1015,21 @@ if rank == 0:
     print(chain.duration)
     
     # Some statistics, records of best SL, profile... 
-    # Extracts time of the form day-month-year_hour.min.
-    time_output = dtime.now().strftime('%d-%m-%Y_%H.%M')     
-    # Creates a unique name with N_SAMPLES, SIGMA IPSTEP and time_output.
-    Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
-                 str(IPSTEP) + '_' + time_output)
-    # Creates a path with Folder_name.
-    Folder_path = os.path.join(os.getcwd(), 'Outs/FigS4d/' + Folder_name)
-    # Creates the directory for the Outs.
-    os.makedirs(Folder_path)
-
-    # Creates a folder to store the outputs raw data.
-    Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
-    os.makedirs(Df_folder_path)
+# =============================================================================
+#     # Extracts time of the form day-month-year_hour.min.
+#     time_output = dtime.now().strftime('%d-%m-%Y_%H.%M')     
+#     # Creates a unique name with N_SAMPLES, SIGMA IPSTEP and time_output.
+#     Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
+#                  str(IPSTEP) + '_' + time_output)
+#     # Creates a path with Folder_name.
+#     Folder_path = os.path.join(os.getcwd(), 'Outs/FigS4d/' + Folder_name)
+#     # Creates the directory for the Outs.
+#     os.makedirs(Folder_path)
+# 
+#     # Creates a folder to store the outputs raw data.
+#     Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
+#     os.makedirs(Df_folder_path)
+# =============================================================================
     
     # Save Inputs file in Figs folder.
     with open(Folder_path + '/AA-Inputs.txt', 'w') as f:
@@ -1107,15 +1127,20 @@ if rank == 0:
     # Plotting the free SL nodes
     j = 0
     for i in df_SL_free.index :
-        # Extracts t_start for the name of the plot
+        # Extracts t_start for the name of the plot.
         istr = str(df_SL_free.loc[i]['t_start'])
-        # Creates a dataframe with the output values for SL
+        # Creates a dataframe with the output values for SL from STP point.
         df = pd.DataFrame({
             "Age (ka)" : chain.samples[:, j*2][STP:], 
             "SL Elevation (m)" : chain.samples[:, j*2+1][STP:]
             })
+        # Dataframe to save, with all values.
+        df_save = pd.DataFrame({
+            "Age (ka)" : chain.samples[:, j*2][:], 
+            "SL Elevation (m)" : chain.samples[:, j*2+1][:]
+            })
         # Store the dataframe.
-        df.to_pickle(Df_folder_path + '/df_SL_' + istr + 'ky.pkl')
+        df_save.to_pickle(Df_folder_path + '/df_SL_' + istr + 'ky.pkl')
         # Plot.
         fig = sns.jointplot(data = df, x = "Age (ka)", y = "SL Elevation (m)", 
                             kind = "hex", palette = "colorblind")
@@ -1161,8 +1186,15 @@ if rank == 0:
                         label_k : chain.samples[
                             :, len(df_SL_free) * 2 + l][STP:] * factor_k
                         })
+                    # Dataframe to save, with all values.
+                    df_save = pd.DataFrame({
+                        label_i : chain.samples[
+                            :, len(df_SL_free) * 2 + j][:] * factor_i, 
+                        label_k : chain.samples[
+                            :, len(df_SL_free) * 2 + l][:] * factor_k
+                        })
                     # Store the dataframe.
-                    df.to_pickle(
+                    df_save.to_pickle(
                         Df_folder_path + '/' + name_files_short[num_profile] + 
                         '_'  + dico.abbrev[i] + '-' + dico.abbrev[k] + '.pkl'
                                  )
