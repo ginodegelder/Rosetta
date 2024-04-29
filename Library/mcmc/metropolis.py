@@ -4,6 +4,11 @@
     Module for the metropolis-based samplers
     @author: Navid Hedjazian
 """
+import os
+import sys
+sys.path.insert(1, os.path.abspath('../../'))
+from Inputs import inversion_params
+
 import numpy as np
 from datetime import datetime
 from numpy.random import default_rng
@@ -23,6 +28,9 @@ STATS = {
     "prop_S": ["prop_S", "n_vars"],
     "parameter_accept_ratio": ["_accept_ratios", "n_vars"]
 }
+
+RESTART = inversion_params['restart']
+R_HAT = inversion_params['R_hat']
 
 
 class Metropolis1dStep(MCMCBase):
@@ -213,7 +221,9 @@ class Metropolis1dStep(MCMCBase):
         # Extract the post predict keys and values of saved chain.
         postpred_items = dataset.posterior_predictive.to_dict(data='array')['data_vars'].items()
         # Keep only data values from the values in items.
-        save_posterior_predict = {key: value['data'] for key, value in postpred_items}
+        save_posterior_predict = {
+            key: value['data'] for key, value in postpred_items
+            }
         for key in save_posterior_predict.keys():
             # Take only one sample from the save.
             data_shape = save_posterior_predict[key][0,0,:].shape
@@ -304,7 +314,7 @@ class Metropolis1dStep(MCMCBase):
                 self.prop_S[i] *= 1.1
                 continue
 
-    def run(self, restart_folder, x0, n, Outs_path, tune=0, tune_interval=1000,
+    def run(self, x0, n, Outs_path, tune=0, tune_interval=1000,
             discard_tuned_samples=False, thin=1):
         """
         Runs the algorithm.
@@ -336,10 +346,18 @@ class Metropolis1dStep(MCMCBase):
         dict_save_run = {}
         dict_save_vars = {}
 
-        if type(restart_folder) == str:
-            dataset = arviz.from_netcdf(
-                '../../Outs/FigS4d/'+restart_folder+"/MCMC_raw.nc"
-                )
+        if type(RESTART) == str:
+            if rank == 0:
+                dataset = arviz.from_netcdf(
+                    './Outs/FigS4d/'+RESTART+"/Dataframes/MCMC_raw.nc"
+                    )
+                    
+                for other_rank in range(1, nb_proc):
+                    comm.send(dataset, dest=other_rank, tag=0)
+                    
+            else:
+                dataset = comm.recv(source = 0, tag=0)
+            
             # Number of runs for saved chain.
             self.saved_n_samples = len(dataset.posterior.draw.values)
             # Extract the last sample of the saved chain. Index 0 for 1 chain.

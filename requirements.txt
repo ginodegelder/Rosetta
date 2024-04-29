@@ -8,3 +8,6 @@ xarray-simlab
 scipy
 seaborn
 mpi4py
+pythran
+numba
+arviz

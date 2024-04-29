@@ -7,9 +7,8 @@
 
 import warnings
 import numpy as np
-#import arviz
+import arviz
 import pickle
-arviz="Blop"
 
 SAMPLE_STATS = [
     "accept_ratio",

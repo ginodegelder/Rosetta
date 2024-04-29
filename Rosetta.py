@@ -58,7 +58,8 @@ DX_REEF = inversion_params['dx_reef']
 SIGMA = inversion_params['sigma']
 CORR_L = inversion_params['corr_l']
 IPSTEP = inversion_params['ipstep']
-RESTART = inversion_params['restart']
+N_CHAINS = inversion_params['n_chains']
+
 
 # Check if there will be something to plot.
 if STP >= N_SAMPLES:
@@ -113,12 +114,13 @@ if len(reef_params.keys()) != len(name_files):
 
 # Check if number of processors used by mpi and number of topo profiles are 
 # equivalent.
-if nb_proc != len(name_files):
+if nb_proc != len(name_files) * N_CHAINS:
     raise Exception(
         "Number of mpi cores must be equal to the number of topographic " \
-        "profiles." 
+        "profiles times number of MCMC chains." 
         f"\nNumber of mpi cores = {comm.Get_size()}"
         f"\nNumber of topographic profiles = {len(name_files)}"
+        f"\nNumber of MCMC chains = {N_CHAINS}"
         )
 
 # Creates a dictionary for topographic coordinates. 
@@ -406,6 +408,24 @@ for key in dict_prop:
     prop_S.append(dict_prop[key])
 prop_S = np.concatenate(prop_S)
 
+# Initialize other chains if N_CHAINS > 1
+# Create a list of sub_master cores
+sub_master = []
+# Create a 2D list of chains
+chains = [x0]
+for i in range(1, N_CHAINS):
+    # One sub_master core for each chain, eg. 3 profiles and 3 chains : 9 cores
+    # with sub_master = [3,6]
+    sub_master.append(i * len(name_files))
+    sub_chain = []
+    # Add a random perturbation to the parameters based on its standard dev.
+    for j in range(len(x0)):
+        perturb = np.random.uniform(-1, 1) * prop_S[j]
+        param_j = x0[j] + perturb
+        sub_chain.append(param_j)
+    # Add the sub_chain to chains
+    chains.append(sub_chain)
+
 # Creates a temporary directory to store SL files. Will be erased at the end.
 if rank == 0:
     # Creates the directory and store its path.
@@ -688,7 +708,6 @@ def align(x, y, IPMIN, IPMAX, y_obs_min):
     
 
     """
-    # ADD Y_OBS_MIN AS INPUTS !!! CHANGE FOR EACH PROFILES (LOOK IN LOGLIKE)
     # Extract the index in y of the first element >= to the min value in y_obs.
     index_min = np.argmax(y >= y_obs_min) 
     # Use this index for the x starting value.
@@ -994,9 +1013,15 @@ if rank == 0:
     # Creates a folder to store the outputs raw data.
     Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
     os.makedirs(Df_folder_path)
+    
+    for other_rank in range(1, nb_proc):
+        comm.send(Df_folder_path, dest=other_rank)
+
+else:
+    Df_folder_path = comm.recv(source = 0)
 
 # Run the algorithm
-chain.run(RESTART, x0, N_SAMPLES, Df_folder_path, tune = N_TUNE, 
+chain.run(RESTART, chains, N_SAMPLES, Df_folder_path, tune = N_TUNE, 
           tune_interval = TUNE_INTERVAL,
           discard_tuned_samples = False, thin = 1)
 
@@ -1011,7 +1036,7 @@ if rank == 0:
     shutil.rmtree(temp_SL_dir)
     
     # Print duration of the algorithm
-    print("total duration:")
+    print("\ntotal duration:")
     print(chain.duration)
     
     # Some statistics, records of best SL, profile... 

@@ -36,6 +36,10 @@ To install the needed libraries (make sure your virtual env is activated)::
 
         pip install -r requirements.txt
 
+Go to Library/reef and run in the terminal::
+
+	pythran PythranTools.py
+
 to quit the virtual env::
         
         deactivate

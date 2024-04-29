@@ -204,10 +204,14 @@ eros_params = {
 inversion_params = {
     # Restart from a preexistant. 
     # Put the path of the model 'Out' folder or 'None'.
-    'restart' : True,
+    'restart' : None,
+    # Number of MCMC chains.
+    'n_chains' : 1,
+    # Gelman-Rubin criteria for multiple chain.
+    'R-hat' : 1.1,
     # Number of simulations
     'n_samples' : 10, 
-    # Factor to change the step size after every tune_interval simu
+    # Tune step size until iteration
     'n_tune' : 1000, 
     # Changes step size every n simu
     'tune_interval' : 500,
