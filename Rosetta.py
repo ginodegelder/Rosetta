@@ -674,7 +674,7 @@ def misfit(y_n, y_obs_n, icovar_i):
     return fit
 
 
-def align(x, y, IPMIN, IPMAX, y_obs_min):
+def align(x, y, ipmin_i, ipmax_i, y_obs_min):
     """
     Cut the simulated array to fit with topo_obs dimensions and avoid offsets.
     
@@ -716,7 +716,7 @@ def align(x, y, IPMIN, IPMAX, y_obs_min):
     ipmod = interp1d(x, y) # Interpolate y as a function of x.
     # Generate new continuous x values from x_start to max x value in topo_obs.
     # with the step defined in Inputs.inversion_params.
-    x_n = np.arange(x_start, x_start + IPMIN + IPMAX, IPSTEP)
+    x_n = np.arange(x_start, x_start - ipmin_i + ipmax_i, IPSTEP)
     y_n = ipmod(x_n) # Interpolation of the vertical values on new x_n axis.
     x_n = x_n - x_n[0] # Remove the offset to have x axis starting at 0.
     
@@ -849,6 +849,13 @@ def loglike(x, dict_save_run, dict_save_vars):
             # Selects the core.
             if rank == num_key:  
                 # Run the reef simulation on the selected core.
+# =============================================================================
+#                 try:
+#                     x, y = run_reef(dict_input_vars[key])
+#                 except Exception:
+#                     report_REEF_error()
+#                     return None, None, dict_save_run, dict_save_vars
+# =============================================================================
                 x, y = run_reef(dict_input_vars[key])
                 # Empty dict_save_run before new saves.
                 dict_save_run = {}
@@ -1021,7 +1028,7 @@ else:
     Df_folder_path = comm.recv(source = 0)
 
 # Run the algorithm
-chain.run(RESTART, chains, N_SAMPLES, Df_folder_path, tune = N_TUNE, 
+chain.run(chains, N_SAMPLES, Df_folder_path, tune = N_TUNE, 
           tune_interval = TUNE_INTERVAL,
           discard_tuned_samples = False, thin = 1)
 
