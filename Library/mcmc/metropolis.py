@@ -418,9 +418,9 @@ class Metropolis1dStep(MCMCBase):
             print(self.n_samples)
             
             # Multi : Each chain has its own x0
-            # x0 = chains[rank//proc_in_chain]
-            x0 = x[0]
-            # x = x0
+            x0 = chains[rank//proc_in_chain]
+            # x0 = x[0]
+            x = x0
     
             # Initialize likelihood and prior
             # Multi : Don't need to change
