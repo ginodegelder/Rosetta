@@ -203,11 +203,11 @@ eros_params = {
 
 inversion_params = {
     # Restart from a preexistant. 
-    # Put the path of the model 'Out' folder or 'None'.
+    # Put the path of the model 'Out' folder or None.
     'restart' : None,
-    # Number of MCMC chains.
+    # Number of MCMC chains. Stay at 1 for now, in dev.
     'n_chains' : 1,
-    # Gelman-Rubin criteria for multiple chain.
+    # Gelman-Rubin criteria for multiple chain. Not implemented.
     'R-hat' : 1.1,
     # Number of simulations
     'n_samples' : 10, 

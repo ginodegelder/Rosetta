@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #OAR -n Rosetta
-#OAR -l /nodes=1/core=3,walltime=75:00:00  
+#OAR -l /nodes=1/core=3,walltime=01:00:00  
 
 # Change number of cores and walltime according to your run
 
