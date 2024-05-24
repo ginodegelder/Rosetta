@@ -30,7 +30,7 @@ STATS = {
 }
 
 RESTART = inversion_params['restart']
-R_HAT = inversion_params['R_hat']
+R_HAT = inversion_params['R-hat']
 n_chains = inversion_params['n_chains']
 # Number of processors used in a single chain
 proc_in_chain = nb_proc // n_chains
