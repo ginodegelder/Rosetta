@@ -31,6 +31,11 @@ STATS = {
 
 RESTART = inversion_params['restart']
 R_HAT = inversion_params['R_hat']
+n_chains = inversion_params['n_chains']
+# Number of processors used in a single chain
+proc_in_chain = nb_proc // n_chains
+# Arrays with ranks of main cores. One main per chain.
+main_list = np.arange(0, nb_proc, proc_in_chain)
 
 
 class Metropolis1dStep(MCMCBase):
@@ -107,6 +112,10 @@ class Metropolis1dStep(MCMCBase):
         self._starting_sample = None
         self._init_prop_S = None  # Saves the initial proposal std
         self._x_loglike = None  # Saves the current loglikelihood
+        
+        # Number and index of chains
+        self.n_chains = n_chains
+        self.i_chain = rank // proc_in_chain
 
     # TODO: define a default for the getattr method
 
@@ -142,6 +151,7 @@ class Metropolis1dStep(MCMCBase):
 
     def initialize_arrays(self, x0, n, thin, tune, tune_interval,
                           discard_tuning, posterior_predict):
+        #self.n_chains = n_chains
         self.n_vars = x0.size
         # Results arrays
         self.n_samples = n
@@ -165,6 +175,8 @@ class Metropolis1dStep(MCMCBase):
 
         for key in posterior_predict.keys():
             data_shape = posterior_predict[key].shape
+            # Multi : does not work with n_chains as it will be concat at the end !!!
+            # Here, better let n_chains to 1.
             self.posterior_predictive[key] = np.empty((
                 self.n_chains, self.n_samples, *data_shape))
 
@@ -197,8 +209,10 @@ class Metropolis1dStep(MCMCBase):
         # Saved loglikelihoods
         save_loglike = dataset.log_likelihood.log_likelihood.values[0,:,:]
         # Saved stats
-        stats_items = dataset.sample_stats.to_dict(data='array')['data_vars'].items()
-        save_sample_stat = {key: value['data'][0,:,:] for key, value in stats_items}
+        stats_items = (dataset.sample_stats
+                       .to_dict(data='array')['data_vars'].items())
+        save_sample_stat = {key: value['data'][0,:,:] 
+                            for key, value in stats_items}
 
         # Set self.stats as a dictionary of numpy arrays for each stat
         for stat in self._save_stats:
@@ -213,13 +227,16 @@ class Metropolis1dStep(MCMCBase):
 
             # Concat the new stats dict and the saved stats dict
             if stat == 'loglikelihood':
-                self.stats[stat] = np.concatenate((save_loglike, self.stats[stat]), axis=0)
+                self.stats[stat] = np.concatenate((save_loglike, 
+                                                   self.stats[stat]), axis=0)
             # Concatenate the values of dict_init into data_vars_dict
             else:
-                self.stats[stat] = np.concatenate((save_sample_stat[stat], self.stats[stat]), axis=0)
+                self.stats[stat] = np.concatenate((save_sample_stat[stat], 
+                                                   self.stats[stat]), axis=0)
 
         # Extract the post predict keys and values of saved chain.
-        postpred_items = dataset.posterior_predictive.to_dict(data='array')['data_vars'].items()
+        postpred_items = (dataset.posterior_predictive
+                          .to_dict(data='array')['data_vars'].items())
         # Keep only data values from the values in items.
         save_posterior_predict = {
             key: value['data'] for key, value in postpred_items
@@ -232,7 +249,8 @@ class Metropolis1dStep(MCMCBase):
                 self.n_chains, self.n_samples, *data_shape))
             # Concatenate the values of save dict and empty dict.
             self.posterior_predictive[key] = np.concatenate((
-                save_posterior_predict[key], self.posterior_predictive[key]), axis=1)
+                save_posterior_predict[key], 
+                self.posterior_predictive[key]), axis=1)
             
         # Update n_samples to take saved chain in account. 
         self.n_samples += self.saved_n_samples
@@ -314,7 +332,7 @@ class Metropolis1dStep(MCMCBase):
                 self.prop_S[i] *= 1.1
                 continue
 
-    def run(self, x0, n, Outs_path, tune=0, tune_interval=1000,
+    def run(self, chains, n, Outs_path, tune=0, tune_interval=1000,
             discard_tuned_samples=False, thin=1):
         """
         Runs the algorithm.
@@ -372,12 +390,15 @@ class Metropolis1dStep(MCMCBase):
 
             x = x0
             # Initialize  likelihood and prior from last sample.
-            # Extract for 1 chain.
-            self._x_loglike = dataset.log_likelihood.log_likelihood[0, -1].values
+            # Extract for 1 chain. Multi : use self.i_chain
+            self._x_loglike = (dataset.log_likelihood
+                               .log_likelihood[0, -1].values)
             # Extract all posterior predict in save file
-            postpred_items = dataset.posterior_predictive.to_dict(data='array')['data_vars'].items()
-            # Keep only the last arrays
-            posterior_predict = {key: value['data'][0,-1,:] for key, value in postpred_items}
+            postpred_items = (dataset.posterior_predictive
+                              .to_dict(data='array')['data_vars'].items())
+            # Keep only the last arrays. Multi : use self.i_chain
+            posterior_predict = {key: value['data'][0,-1,:] 
+                                 for key, value in postpred_items}
             # Empty the extraction.
             postpred_items = None
             #self._x_loglike, posterior_predict = self.loglikelihood(x)
@@ -395,18 +416,25 @@ class Metropolis1dStep(MCMCBase):
             print("----------------------")
             print("number of saved samples")
             print(self.n_samples)
-    
-            x = x0
+            
+            # Multi : Each chain has its own x0
+            # x0 = chains[rank//proc_in_chain]
+            x0 = x[0]
+            # x = x0
     
             # Initialize likelihood and prior
-            self._x_loglike, posterior_predict, dict_save_run, dict_save_vars = \
-                self.loglikelihood(x, dict_save_run, dict_save_vars)
+            # Multi : Don't need to change
+            (self._x_loglike, posterior_predict, 
+             dict_save_run, dict_save_vars) = self.loglikelihood(
+                 x, dict_save_run, dict_save_vars)
             # Initialize predictions
             # Initialize arrays
+            # Multi : Don't need to change
             self.initialize_arrays(x0, n, thin, tune, tune_interval,
                                discard_tuned_samples, posterior_predict)
             n_tup = (0, n)
-            
+        
+        # Multi : different for each chains. No need to change
         x_logprior = self.logprior(x)
         if self.verbose > 1:
             print("Starting log-likelihood")
@@ -417,7 +445,7 @@ class Metropolis1dStep(MCMCBase):
         n_accept = 0
         i_sample = 0
         
-        if rank == 0:
+        if rank == 0: # Multi : if rank in main_list
             # Start MCMC sampling
             # -------------------
             for i in range(*n_tup):
@@ -459,14 +487,16 @@ class Metropolis1dStep(MCMCBase):
                     compute_likelihood = True
                 
                 # Share the list of parameters and compute_likelihood
+                # Multi : for other_rank in range(rank+1, rank+proc_in_chain)
                 for other_rank in range(1, nb_proc):
                     comm.send(xp, dest=other_rank, tag = 1)
                     comm.send(compute_likelihood, dest=other_rank, tag = 2)
                     
                 if compute_likelihood:
                     #print("Simu number", self._current_iter)
-                    xp_loglike, prop_predict, dict_save_run, dict_save_vars = \
+                    xp_loglike, prop_predict, dict_save_run, dict_save_vars = (
                         self.loglikelihood(xp, dict_save_run, dict_save_vars)
+                        )
                 else:
                     xp_loglike = - np.inf
     
@@ -489,7 +519,7 @@ class Metropolis1dStep(MCMCBase):
     
                 # Draw a random number between 0 and 1
                 # def accept():
-    
+                # Crash : and xp_loglike is not None
                 if np.log(u) < xp_logprior + xp_loglike - self._x_loglike - \
                         x_logprior:
                     # case accept
@@ -535,7 +565,8 @@ class Metropolis1dStep(MCMCBase):
                       f"Mean time for one iteration: "\
                       f"{(t1 - start_time)/(self._current_iter - n_tup[0])}",
                       end='\r')
-    
+                
+                # Multi : put gelman rubin and chain number. Put it with save.
                 if self._current_iter % self.show_stats == 0:
                     self.print_stats(i_sample)
                     if self.verbose > 1:
@@ -548,6 +579,7 @@ class Metropolis1dStep(MCMCBase):
                 if n % thin == 0:
                     i_sample = int(i / thin)
                     # Get chain number. Only 0 for serial case
+                    # Multi : self.i_chain 
                     i_chain = 0
                     self.save_sample(x, i_sample)
                     self.save_posterior_predictive(posterior_predict,
@@ -558,25 +590,44 @@ class Metropolis1dStep(MCMCBase):
                         # save it to dictionnary
                         self.stats[stat][i_sample, ...] = getattr(self, attr)
 
-                # Save the chain in arviz format.
-                if self._current_iter % 1000 == 0 or self._current_iter == n_tup[1]-1:
+                # Save the chain in arviz format. Multi : keep one for each and 
+                # concat along chains. comm.send/rec the datasets. 
+                # f'/MCMC_chain_{self.i_chain}.nc'
+                # if rank == 0: concat files in MCMC_raw.nc 
+                if (self._current_iter % 1000 == 0 or 
+                    self._current_iter == n_tup[1]-1):
+                    #Multi
+                    #self.write_samples(Outs_path+f'/MCMC_chain_{self.i_chain}.nc', 
+                    #                   format='arviz')
+                    #dataset = self.get_results(format='arviz')
+                    #data_list = comm.allgather(dataset)
+                    #if rank == 0:
+                    #    concat_array = arviz.concat(data_list, dim='chain')
+                    #    concat_array.to_netcdf(Outs_path+'/MCMC_raw.nc', 
+                    #                   format='arviz')
+                    #    concat_array = None
+                    #dataset = None
                     self.write_samples(Outs_path+'/MCMC_raw.nc', 
                                        format='arviz')
     
                 # Update iter
                 self._current_iter += 1
-                # Send the iteration to other ranks
+                # Send the iteration to other ranks. Multi : change other_ranks
                 for other_rank in range(1, nb_proc):
                     comm.send(self._current_iter, dest=other_rank, tag = 3)
                 
         else:            
              for i in range (n):
+                 # Multi : Select the master core for the chain         
+                 #chain_main = main_list[self.i_chain]
+                     
                  xp = comm.recv(source = 0, tag = 1)
                  compute_likelihood = comm.recv(source = 0, tag = 2)
                  
                  if compute_likelihood:
-                     xp_loglike, prop_predict, dict_save_run, dict_save_vars =\
-                         self.loglikelihood(xp, dict_save_run, dict_save_vars)
+                     (xp_loglike, prop_predict, 
+                      dict_save_run, dict_save_vars) = self.loglikelihood(
+                          xp, dict_save_run, dict_save_vars)
                  else:
                      xp_loglike = - np.inf
                      
