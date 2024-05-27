@@ -254,6 +254,8 @@ class Metropolis1dStep(MCMCBase):
             
         # Update n_samples to take saved chain in account. 
         self.n_samples += self.saved_n_samples
+        # Update prop_S to saved one. Check for multi chains.
+        self.prop_S = dataset.sample_stats.prop_S[0,-1,:]
 
         # Private arrays
         self._current_iter = self.saved_n_samples + 1
