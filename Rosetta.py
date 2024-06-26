@@ -73,6 +73,9 @@ if STP >= N_SAMPLES:
 # Use construction_params if construction = True, eros_param if False
 if construction:
     reef_params = construction_params
+    # Extract dt REEF and remove it
+    DT_REEF = reef_params['dt']
+    reef_params.pop('dt')
     # Extracts the first sub dictionnary from reef_params.
     first_sub_dict = next(iter(reef_params.values()))
     # Set "platform" to True or False if 'init__lterr' > 0 or = 0 respectively. 
@@ -88,6 +91,9 @@ if construction:
         first_sub_dict.pop('init__amplitude', None)
 else:
     reef_params = eros_params
+    # Extract dt REEF and remove it
+    DT_REEF = reef_params['dt']
+    reef_params.pop('dt')
 
 
 # Extracts topographic profiles  
@@ -743,8 +749,6 @@ def run_reef(input_vars):
         Elevations of the constructed profile 
 
     """
-    # Time step for the reef model
-    dt = 100 
     # Starting time of the model
     tmax = TSTART * 1e3 
     # print(tmax)
@@ -768,7 +772,7 @@ def run_reef(input_vars):
     ds_in = xs.create_setup(
         model = model_type,
         clocks = {
-            'time' : np.arange(0., tmax + dt, dt)
+            'time' : np.arange(0., tmax + DT_REEF, DT_REEF)
     },
         master_clock = 'time',
         # Uses the subdict created by param(x) function.
