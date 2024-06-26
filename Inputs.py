@@ -66,7 +66,7 @@ construction_params = {
         'grid__slopi': [6e-2, None, None, None],
         # Water height for wave base
         'eros__hwb': [3, 1, 5, 0.25],
-        # Eroded volume
+        # Eroded flux (m^3/y)
         'eros__Ev': [80e-3, 20e-3, 500e-3, 20e-3],
         # Delta...
         'hfactor__Dbar': [500, 200, 1800, 25],
@@ -108,7 +108,7 @@ construction_params = {
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.1e-3],
         # Water height for wave base
         'eros__hwb': [3, 1, 5, 0.25],
-        # Eroded volume
+        # Eroded flux (m^3/y)
         'eros__Ev': [80e-3, 20e-3, 500e-3, 20e-3],
         # Delta...
         'hfactor__Dbar': [1400, 800, 1800, 25],
@@ -127,7 +127,7 @@ construction_params = {
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.1e-3],
         # Water height for wave base
         'eros__hwb': [3, 1, 5, 0.25],
-        # Eroded volume
+        # Eroded flux (m^3/y)
         'eros__Ev': [80e-3, 20e-3, 500e-3, 20e-3],
         # Delta...
         'hfactor__Dbar': [180, 100, 1800, 25],
@@ -166,7 +166,7 @@ eros_params = {
         'grid__slopi': [6e-2, None, None, None],
         # Water height for wave base
         'eros__hwb': [3, None, None, None],
-        # Eroded volume
+        # Eroded flux (m^3/y)
         'eros__Ev': [400e-3, 20e-3, 400e-3, 30e-3],
         # X maximum water height for reef growth
         'grid__dmax': [100, None, None, None],
@@ -186,14 +186,14 @@ eros_params = {
     'reef_params1' : {
         # vertical land motion rate
         'vertical__u': [-0.3e-3, -0.5e-3, -0.1e-3, 0.02e-3],
-        # Eroded volume
+        # Eroded flux (m^3/y)
         'eros__Ev': [200e-3, 50e-3, 500e-3, 40e-3],
         },
     # Another dict
     'reef_params2' : {
         # vertical land motion rate
         'vertical__u': [-0.23e-3, -0.5e-3, -0.1e-3, 0.02e-3],
-        # Eroded volume
+        # Eroded flux (m^3/y)
         'eros__Ev': [200e-3, 50e-3, 500e-3, 40e-3],
         }
     }

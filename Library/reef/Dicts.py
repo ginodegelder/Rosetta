@@ -218,7 +218,7 @@ class Dicos():
             'construct__hmax'    : 'Max water height for growth (m)',
             'hfactor__Dbar'      : 'Wave surge (m)',
             'hfactor__how'       : 'Depth of open ocean (m)',
-            'eros__Ev'           : 'Erosion rate (mm/y)',
+            'eros__Ev'           : r'Erosion rate $10^{-3}(m^3/an)}$',
             'eros__hwb'          : 'Wave base depth (m)',
             'grid__slopi'        : 'Initial slope (%)',
             'init__zterr'        : 'Elevation of antecedent terrace (m)',
