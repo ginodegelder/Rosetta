@@ -152,6 +152,8 @@ construction_params = {
 # "reef_params".
 
 eros_params = {
+    # Timestep for the forward REEF model (years)
+    "dt" : 400,
     # Format : 'variable_name' : [starting_point, min, max, step_size]
     # For fixed one : 'variable_name' : [starting_point, None, None, None]
     # Do not change the values if there is 'X' at the beginning of the comment

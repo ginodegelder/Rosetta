@@ -63,9 +63,9 @@ N_CHAINS = inversion_params['n_chains']
 
 # Check if there will be something to plot.
 if STP >= N_SAMPLES:
-    raise Exception(
+    raise Warning(
         "Starting point for plotting >= number of sample. Nothing will be " \
-        "plotted.\n" 
+        "plotted if not restarting from a preexistant model.\n" 
         f"stp = {STP}\n"
         f"n_samples = {N_SAMPLES}"
         )
