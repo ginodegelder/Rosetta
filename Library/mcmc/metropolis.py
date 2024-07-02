@@ -259,12 +259,15 @@ class Metropolis1dStep(MCMCBase):
 
         # Private arrays
         self._current_iter = self.saved_n_samples + 1
+        #recent_n_prop = np.array(np.diff(ds.sample_stats.parameter_accept_ratio[0,-2000:,:].values, axis=0),dtype=np.bool_)
         self._recent_n_prop = np.zeros(self.n_vars, dtype=np.int32)
         self._recent_n_accept = np.zeros(self.n_vars, dtype=np.int32)
         self._prop_mat = np.zeros((tune_interval, self.n_vars),
                                   dtype=np.bool_)
+        # accept_mat = np.array(np.diff(dataset.posterior.x[0,-self.tune_interval:,:].values,axis=0),dtype=np.bool_)
         self._accept_mat = np.zeros((tune_interval, self.n_vars),
                                     dtype=np.bool_)
+        #self.accept_ratios = dataset.sample_stats.parameter_accept_ratio[0,-1,:]
         self._accept_ratios = np.zeros(self.n_vars)
 
     def reset(self):
@@ -361,6 +364,7 @@ class Metropolis1dStep(MCMCBase):
 
         """
         start_time = datetime.now()
+        #self.tune_interval = tune_interval
         
         # Initializes the saving dictionnaries from one simulation to another.
         dict_save_run = {}
@@ -407,6 +411,10 @@ class Metropolis1dStep(MCMCBase):
             # Re initialize arrays from saved chain.
             self.restart_arrays(dataset, x0, n, thin, tune, tune_interval,
                                discard_tuned_samples, posterior_predict)
+            
+            # Extract the number of accepted models from saved chain
+            n_accept = (dataset.sample_stats.accept_ratio[0,-1,:].values * 
+                        self.saved_n_samples)
             # Close the dataset
             del dataset
             n_tup = (self.saved_n_samples, self.saved_n_samples+n)
@@ -434,6 +442,8 @@ class Metropolis1dStep(MCMCBase):
             # Multi : Don't need to change
             self.initialize_arrays(x0, n, thin, tune, tune_interval,
                                discard_tuned_samples, posterior_predict)
+            
+            n_accept = 0
             n_tup = (0, n)
         
         # Multi : different for each chains. No need to change
@@ -444,7 +454,7 @@ class Metropolis1dStep(MCMCBase):
             print()
 
         # Initialize other parameters
-        n_accept = 0
+        
         i_sample = 0
         
         if rank == 0: # Multi : if rank in main_list
