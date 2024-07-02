@@ -782,7 +782,7 @@ class SedimClastics():
                     break
                 # Le rivage est le facteur limitant, et oui, ça arrive mais je ne comprends pas encore pourquoi...
                 if spill == jmaxs[-1]:
-                    print('Is this happening ?')
+                #    print('Is this happening ?')
                     break
                 
                 # Adjusting jmins and jmaxs accordingly

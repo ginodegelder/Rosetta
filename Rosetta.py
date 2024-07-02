@@ -281,21 +281,21 @@ for key, subdict in reef_params.items():
         
     # The next subdicts (i > 0) will only contain free parameters.
     else:
-        # Create the name of the dataframe. 
-        df_name = f"df_reef_free_{num_key}"
-        # Create the dataframe with the generated name.
-        df_name = pd.DataFrame.from_dict(reef_params[key], orient = 'index', 
-                                          columns = ['Starting_Point', 'Min', 
-                                                     'Max', 'Step Size'])
+        # Create the dataframe for subdict.
+        df_reef_free_i = pd.DataFrame.from_dict(reef_params[key], 
+                                                orient = 'index', 
+                                                columns = ['Starting_Point', 
+                                                           'Min', 'Max', 
+                                                           'Step Size'])
         # Sort by indexes to have all dataframes in the same format.
-        df_name = df_name.reindex(df_reef_free_0.index)
+        df_reef_free_i = df_reef_free_i.reindex(df_reef_free_0.index)
         # Put the dataframe in "dict_df_reef_free".
-        dict_df_reef_free[f"df_reef_free_{num_key}"] = df_name
+        dict_df_reef_free[f"df_reef_free_{num_key}"] = df_reef_free_i
         # Combine fixed and free parameters in dataframes put in "dict_df_reef"
         for param in subdict:
             # Update df_reef_0 (used as a base)
             df_reef_0 = df_reef_0.replace(
-                df_reef_0.loc[param], df_name.loc[param]
+                df_reef_0.loc[param], df_reef_free_i.loc[param]
                 )
             # Puts the updated dataframe in dict_df_reef
             dict_df_reef[f"df_reef_{num_key}"] = df_reef_0
@@ -642,9 +642,9 @@ def param(x, dict_save_vars):
         
     # Interpolation of e with respect to t.
     pc = interpolate.PchipInterpolator(t, e, axis=0, extrapolate=None)
-    # New time range.
-    tnew = np.arange(TSTART - 1, - 1, - 1) 
-    # Interpolate SL elevations according to tnew range.
+    # New time range in ky.
+    tnew = np.arange(TSTART - 1, - 1, -DT_REEF*10**(-3)) 
+    # Interpolate SL elevations according to tnew.
     enew = pc(tnew)  
     # Put them in a 2D array.
     SL_new = np.array([tnew, enew])  
@@ -1145,7 +1145,7 @@ if rank == 0:
     # Sea-level plot 
     SL_folder_path = os.path.join(os.getcwd(), Folder_path + '/SL')
     os.makedirs(SL_folder_path)
-    xsl = np.arange(0, TSTART, 1)
+    xsl = np.arange(0, TSTART, DT_REEF*10**(-3))
     #xsl = chain.posterior_predictive["t"][0, :, :][STP:]
     ysl = chain.posterior_predictive["e"][0, :, :][STP:]
     fig, fig2 = Plot_FigS4d.sealevel(xsl, ysl, best, SL_folder_path)
