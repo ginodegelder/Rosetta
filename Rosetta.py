@@ -842,7 +842,7 @@ def report_REEF_error(REEF_inputs):
     # Append REEF_inputs to the file
     with open(error_REEF_file, "a") as file:  
         file.write("reef_params = \n")
-        pprint.pprint(REEF_inputs, stream = f)
+        pprint.pprint(REEF_inputs, stream = file)
         file.write("\n")
         
     # SL source file
