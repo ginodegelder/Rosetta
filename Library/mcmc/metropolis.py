@@ -259,12 +259,23 @@ class Metropolis1dStep(MCMCBase):
 
         # Private arrays
         self._current_iter = self.saved_n_samples + 1
-        #recent_n_prop = np.array(np.diff(ds.sample_stats.parameter_accept_ratio[0,-2000:,:].values, axis=0),dtype=np.bool_)
+        
+        #recent_n_prop = np.sum(prop_mat, axis=0)
         self._recent_n_prop = np.zeros(self.n_vars, dtype=np.int32)
+        #recent_n_accept = np.sum(accept_mat, axis=0)
         self._recent_n_accept = np.zeros(self.n_vars, dtype=np.int32)
+        #prop_diff = np.diff(ds.sample_stats.parameter_accept_ratio[0,-tune_interval:,:].values, axis=0)
+        #2 values > 0 for each array [i,:] : need to remove the max
+        #idx = np.argmax(np.abs(prop_diff),axis = 1)
+        #rows = np.arange(prop_diff.shape[0])
+        #prop_diff[rows,idx]=0
+        #prop_mat = np.array(prop_diff, dtype=np.bool_)
+        #Handle case for accept>prop
+        #prop_mat[np.where(accept_mat ==True)[0],:]=False
+        #prop_mat[np.where(accept_mat ==True)]=True
         self._prop_mat = np.zeros((tune_interval, self.n_vars),
                                   dtype=np.bool_)
-        # accept_mat = np.array(np.diff(dataset.posterior.x[0,-self.tune_interval:,:].values,axis=0),dtype=np.bool_)
+        # accept_mat = np.array(np.diff(dataset.posterior.x[0,-tune_interval:,:].values,axis=0),dtype=np.bool_)
         self._accept_mat = np.zeros((tune_interval, self.n_vars),
                                     dtype=np.bool_)
         #self.accept_ratios = dataset.sample_stats.parameter_accept_ratio[0,-1,:]
@@ -364,7 +375,6 @@ class Metropolis1dStep(MCMCBase):
 
         """
         start_time = datetime.now()
-        #self.tune_interval = tune_interval
         
         # Initializes the saving dictionnaries from one simulation to another.
         dict_save_run = {}
@@ -532,8 +542,10 @@ class Metropolis1dStep(MCMCBase):
                 # Draw a random number between 0 and 1
                 # def accept():
                 # Crash : and xp_loglike is not None
-                if np.log(u) < xp_logprior + xp_loglike - self._x_loglike - \
-                        x_logprior:
+                if (np.log(u) < (
+                        xp_logprior + xp_loglike - self._x_loglike - x_logprior
+                        ) 
+                    and xp_loglike is not None):
                     # case accept
                     np.copyto(x, xp)  # copy xp into x
                     self._x_loglike = xp_loglike  # update likelihood value
@@ -559,6 +571,7 @@ class Metropolis1dStep(MCMCBase):
                     self._current_iter)
     
                 if self._current_iter % tune_interval == 0 and \
+                        self._current_iter >= n_tup[0] + tune_interval and \
                         self._current_iter < tune:
                     self.tune()
                     if self.verbose > 0:

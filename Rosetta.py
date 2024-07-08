@@ -42,6 +42,7 @@ import pprint
 from mpi4py import MPI
 import tempfile
 import shutil
+import traceback
 
 # Get rank and number of processors.
 comm = MPI.COMM_WORLD
@@ -806,6 +807,59 @@ def run_reef(input_vars):
     
     return x, y
 
+def report_REEF_error(REEF_inputs):
+    """
+    Report an exception raised by the forward REEF model.
+
+    Parameters
+    ----------
+    REEF_inputs : Dictionnary
+        REEF parameters.
+
+    Returns
+    -------
+    None.
+    Write 3 error files containing : error traceback, REEF_inputs error and
+    SL error
+
+    """
+    # Get the last exception traceback
+    trace = traceback.format_exc()
+    
+    # Create the error directory if it does not exist
+    err_folder = 'REEF_err'
+    err_dir = os.path.join(os.getcwd(), err_folder)
+    os.makedirs(err_dir, exist_ok=True)
+    
+    # Define the error file path
+    error_file_path = os.path.join(err_dir, "error_log.txt")
+    # Append the traceback to the file
+    with open(error_file_path, "a") as file:  
+        file.write(trace + "\n")
+        
+    # Define the REEF input file path
+    error_REEF_file = os.path.join(err_dir, "error_REEF_inputs.txt")
+    # Append REEF_inputs to the file
+    with open(error_REEF_file, "a") as file:  
+        file.write("reef_params = \n")
+        pprint.pprint(REEF_inputs, stream = f)
+        file.write("\n")
+        
+    # SL source file
+    SL_name = "SL_new"+str(rank)+".dat"
+    SL_path = temp_SL_dir + '/' + SL_name
+    # Open the source SL file in read mode
+    with open(SL_path, 'r') as src_SL:
+        SL_err = src_SL.read() 
+    
+    # SL destination file
+    error_SL_file = os.path.join(err_dir, "error_SL.txt")
+    # Open the destination SL file in append mode
+    with open(error_SL_file, 'a') as dest_SL:
+        dest_SL.write(SL_err + "\n")
+    
+    return
+
 
 def loglike(x, dict_save_run, dict_save_vars):
     """
@@ -854,14 +908,14 @@ def loglike(x, dict_save_run, dict_save_vars):
             # Selects the core.
             if rank == num_key:  
                 # Run the reef simulation on the selected core.
-# =============================================================================
-#                 try:
-#                     x, y = run_reef(dict_input_vars[key])
-#                 except Exception:
-#                     report_REEF_error()
-#                     return None, None, dict_save_run, dict_save_vars
-# =============================================================================
-                x, y = run_reef(dict_input_vars[key])
+                try:
+                    x, y = run_reef(dict_input_vars[key])
+                except Exception:
+                    # Report the error
+                    report_REEF_error(dict_input_vars[key])
+                    # Break and send "None"
+                    dict_save_run = None
+                    break
                 # Empty dict_save_run before new saves.
                 dict_save_run = {}
                 # Update dict_save_run.
@@ -899,7 +953,14 @@ def loglike(x, dict_save_run, dict_save_vars):
             
             if rank == focus_run and rank == num_key:
                 # Run the reef simulation on the selected core.
-                x, y = run_reef(dict_input_vars[key])
+                try:
+                    x, y = run_reef(dict_input_vars[key])
+                except Exception:
+                    # Report the error
+                    report_REEF_error(dict_input_vars[key])
+                    # Break and send "None"
+                    dict_save_run = None
+                    break
                 # Empty dict_save_run before new saves.
                 dict_save_run = {}
                 # Update dict_save_run.
@@ -974,6 +1035,10 @@ def loglike(x, dict_save_run, dict_save_vars):
     # Remove the list.
     dict_save_run = {key: value for dicos in list_dict_save_run 
                      for key, value in dicos.items()}
+    # Check if a forward model crashed
+    if any(value is None for value in dict_save_run.values()):
+        # Return 
+        return None, None, dict_save_run, dict_save_vars
 
     # Collects the posterior predictions dictionnaries on each core.
     list_dict_pred = comm.allgather(dict_pred)
