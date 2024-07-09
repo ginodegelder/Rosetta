@@ -521,14 +521,14 @@ class Metropolis1dStep(MCMCBase):
                         self.loglikelihood(xp, dict_save_run, dict_save_vars)
                         )
                 
+                else:
+                    xp_loglike = - np.inf
+                
                 # Handle crash models
                 if xp_loglike == None:
                     n_crash += 1
                     xp_loglike = - np.inf
-                    
-                else:
-                    xp_loglike = - np.inf
-    
+                               
                 u = rng.random()
                 if self.verbose > 1:
                     print("       LOGLIKE       ")
