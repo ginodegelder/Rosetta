@@ -246,7 +246,8 @@ dict_df_reef_free = {}
 num_key = 0
 for key, subdict in reef_params.items():
     # Convert hwb in float for forward model
-    subdict['eros__hwb'][0] = float(subdict['eros__hwb'][0])
+    if 'eros__hwb' in subdict:
+        subdict['eros__hwb'][0] = float(subdict['eros__hwb'][0])
     # Generating the dataframes from the subdicts.
     # The first subdict (num_key = 0) contains both fixed and free parameters.
     if num_key == 0: 
