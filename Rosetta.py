@@ -644,7 +644,8 @@ def param(x, dict_save_vars):
     # Interpolation of e with respect to t.
     pc = interpolate.PchipInterpolator(t, e, axis=0, extrapolate=None)
     # New time range in ky.
-    tnew = np.arange(TSTART - 1, - 1, -DT_REEF*10**(-3)) 
+    dt_ky = DT_REEF*10**(-3)
+    tnew = np.arange(TSTART - dt_ky, - dt_ky, - dt_ky) 
     # Interpolate SL elevations according to tnew.
     enew = pc(tnew)  
     # Put them in a 2D array.
@@ -1032,13 +1033,13 @@ def loglike(x, dict_save_run, dict_save_vars):
     
     # Collects all run saves. Allgather argument concatenates values in a list.
     list_dict_save_run = comm.allgather(dict_save_run)
+    # Check if a forward model crashed
+    if None in list_dict_save_run:
+        # Return 
+        return None, None, dict_save_run, dict_save_vars
     # Remove the list.
     dict_save_run = {key: value for dicos in list_dict_save_run 
                      for key, value in dicos.items()}
-    # Check if a forward model crashed
-    if any(value is None for value in dict_save_run.values()):
-        # Return 
-        return None, None, dict_save_run, dict_save_vars
 
     # Collects the posterior predictions dictionnaries on each core.
     list_dict_pred = comm.allgather(dict_pred)

@@ -42,9 +42,10 @@ class SLFile:
         dico = Dicos()
         
         age_in, self.asl_in = readfile(dico.path_SLcurves+self.RSLin)
-    
+        dt = age_in[0] - age_in[1]
+        self._it_count = 0
         ###age_in, self.asl_in = readfile(dico.SL_files[self.RSLin])
-        self.t_in = np.arange(age_in[-1], age_in[0]+1)*1000
+        self.t_in = np.arange(age_in[-1], age_in[0]+dt, dt)*1000
     
     @xs.runtime(args=('step_start'))
     def run_step(self, t):
@@ -52,7 +53,9 @@ class SLFile:
 #         if t % 100000 == 0:
 #            print('t', t/1000)
         # Interpolates SL for the timestep
-        self.asl_file = np.interp(t, self.t_in, self.asl_in)  
+        #self.asl_file = np.interp(t, self.t_in, self.asl_in)  
+        self.asl_file = self.asl_in[self._it_count]
+        self._it_count += 1
         
 #*********************************************************************
 
