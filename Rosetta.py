@@ -900,6 +900,7 @@ def loglike(x, dict_save_run, dict_save_vars):
     dict_input_vars, dict_save_vars, tnew, enew, focus_run = \
         param(x, dict_save_vars)
     
+    crash = False
     sum_fit = 0 
     predictions = {}
     
@@ -912,19 +913,20 @@ def loglike(x, dict_save_run, dict_save_vars):
                 # Run the reef simulation on the selected core.
                 try:
                     x, y = run_reef(dict_input_vars[key])
+                    # Empty dict_save_run before new saves.
+                    dict_save_run = {}
+                    # Update dict_save_run.
+                    dict_save_run = {f"rank_{rank}" : {
+                        "x" : x,
+                        "y" : y
+                            }}
                 except Exception:
                     # Report the error
                     report_REEF_error(dict_input_vars[key])
-                    # Break and send "None"
-                    dict_save_run = None
+                    # Do not update save_run as model is rejected.
+                    crash = True
                     break
-                # Empty dict_save_run before new saves.
-                dict_save_run = {}
-                # Update dict_save_run.
-                dict_save_run = {f"rank_{rank}" : {
-                    "x" : x,
-                    "y" : y
-                        }}
+                
                 # Extracts min and max x values from observed topography.
                 ipmin_i = dict_topo_obs[f"topo_obs_{num_key}"] \
                     [f"ipmin_{num_key}"]
@@ -957,19 +959,20 @@ def loglike(x, dict_save_run, dict_save_vars):
                 # Run the reef simulation on the selected core.
                 try:
                     x, y = run_reef(dict_input_vars[key])
+                    # Empty dict_save_run before new saves.
+                    dict_save_run = {}
+                    # Update dict_save_run.
+                    dict_save_run = {f"rank_{rank}" : {
+                        "x" : x,
+                        "y" : y
+                            }}
                 except Exception:
                     # Report the error
                     report_REEF_error(dict_input_vars[key])
-                    # Break and send "None"
-                    dict_save_run = None
+                    # Do not update save_run as model is rejected.
+                    crash = True
                     break
-                # Empty dict_save_run before new saves.
-                dict_save_run = {}
-                # Update dict_save_run.
-                dict_save_run = {f"rank_{rank}" : {
-                    "x" : x,
-                    "y" : y
-                        }}
+                
                 # Extracts min and max x values from observed topography.
                 ipmin_i = dict_topo_obs[f"topo_obs_{num_key}"] \
                     [f"ipmin_{num_key}"]
@@ -1034,13 +1037,15 @@ def loglike(x, dict_save_run, dict_save_vars):
     
     # Collects all run saves. Allgather argument concatenates values in a list.
     list_dict_save_run = comm.allgather(dict_save_run)
-    # Check if a forward model crashed
-    if None in list_dict_save_run:
-        # Return 
-        return None, None, dict_save_run, dict_save_vars
     # Remove the list.
     dict_save_run = {key: value for dicos in list_dict_save_run 
                      for key, value in dicos.items()}
+    
+    # Check if a model crashed 
+    list_crash = comm.allgather(crash)
+    if True in list_crash:
+        # If yes, return None for loglike and predictions
+        return None, None, dict_save_run, dict_save_vars
 
     # Collects the posterior predictions dictionnaries on each core.
     list_dict_pred = comm.allgather(dict_pred)
