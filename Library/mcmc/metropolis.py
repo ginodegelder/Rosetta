@@ -466,6 +466,7 @@ class Metropolis1dStep(MCMCBase):
         # Initialize other parameters
         
         i_sample = 0
+        n_crash = 0
         
         if rank == 0: # Multi : if rank in main_list
             # Start MCMC sampling
@@ -519,6 +520,12 @@ class Metropolis1dStep(MCMCBase):
                     xp_loglike, prop_predict, dict_save_run, dict_save_vars = (
                         self.loglikelihood(xp, dict_save_run, dict_save_vars)
                         )
+                
+                # Handle crash models
+                if xp_loglike == None:
+                    n_crash += 1
+                    xp_loglike = - np.inf
+                    
                 else:
                     xp_loglike = - np.inf
     
@@ -588,7 +595,8 @@ class Metropolis1dStep(MCMCBase):
                 t1 = datetime.now()
                 print(f"Iteration: {self._current_iter}/{n_tup[1]}. "\
                       f"Mean time for one iteration: "\
-                      f"{(t1 - start_time)/(self._current_iter - n_tup[0])}",
+                      f"{(t1 - start_time)/(self._current_iter - n_tup[0])}"\
+                      f"\n Number of crashed forward : {n_crash}",
                       end='\r')
                 
                 # Multi : put gelman rubin and chain number. Put it with save.
