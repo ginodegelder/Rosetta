@@ -595,8 +595,8 @@ class Metropolis1dStep(MCMCBase):
                 t1 = datetime.now()
                 print(f"Iteration: {self._current_iter}/{n_tup[1]}. "\
                       f"Mean time for one iteration: "\
-                      f"{(t1 - start_time)/(self._current_iter - n_tup[0])}"\
-                      f"\n Number of crashed forward : {n_crash}",
+                      f"{(t1 - start_time)/(self._current_iter - n_tup[0])}. "\
+                      f"Number of crashed forward : {n_crash}",
                       end='\r')
                 
                 # Multi : put gelman rubin and chain number. Put it with save.
