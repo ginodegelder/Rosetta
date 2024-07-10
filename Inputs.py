@@ -60,8 +60,6 @@ construction_params = {
     "reef_params0" : {
         # vertical land motion rate
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.1e-3],
-        # X filename for RSL reconstruction
-        'SLstory__RSLin': ['SL', None, None,None],
         # initial slope of the substrate
         'grid__slopi': [6e-2, None, None, None],
         # Water height for wave base
@@ -74,20 +72,8 @@ construction_params = {
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
         # maximum water height for reef growth
         'construct__hmax': [20, None, None, None],
-        # X maximum water height for reef growth
-        'grid__dmax': [100, None, None, None],
-        # X uniform spacing
-        'grid__spacing': [1, None, None, None],
         # Water height for open ocean
         'hfactor__how': [2, None, None, None],
-        # Coefficient for erosion efficiency, sea-bed
-        'eros__beta1': [0.1, None, None, None],
-        # Coefficient for erosion efficiency, cliff retreat
-        'eros__beta2': [1, None, None, None],
-        # Height of notch for volume eroded during cliff retreat
-        'eros__hnotch': [1, None, None, None],
-        # ---
-        'depot__repos': [15e-2, None, None, None],
         # Elevation of antecedent terrace
         'init__zterr': [-25, -35, -20, 1],
         # Length of antecedent terrace
@@ -162,24 +148,12 @@ eros_params = {
     "reef_params0" : {
         # vertical land motion rate
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.01e-3],
-        # X filename for RSL reconstruction
-        'SLstory__RSLin': ['SL', None, None,None],
         # initial slope of the substrate
         'grid__slopi': [6e-2, None, None, None],
         # Water height for wave base
         'eros__hwb': [3, None, None, None],
         # Eroded flux (m^3/y)
         'eros__Ev': [400e-3, 20e-3, 400e-3, 30e-3],
-        # X maximum water height for reef growth
-        'grid__dmax': [100, None, None, None],
-        # X uniform spacing
-        'grid__spacing': [1, None, None, None],
-        # Coefficient for erosion efficiency, sea-bed
-        'eros__beta1': [0.1, None, None, None],
-        # Coefficient for erosion efficiency, cliff retreat
-        'eros__beta2': [1, None, None, None],
-        # Height of notch for volume eroded during cliff retreat
-        'eros__hnotch': [1, None, None, None],
         },
 # =============================================================================
 #   Put here the sub-dicts with only the free parameters for other topo profile

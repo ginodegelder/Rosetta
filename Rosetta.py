@@ -72,7 +72,14 @@ if STP >= N_SAMPLES:
         )
 
 # Use construction_params if construction = True, eros_param if False
-if construction:
+if not construction:
+    reef_params = eros_params
+    # Extract dt REEF and remove it
+    DT_REEF = reef_params['dt']
+    reef_params.pop('dt')
+    first_sub_dict = next(iter(reef_params.values()))
+    
+else:
     reef_params = construction_params
     # Extract dt REEF and remove it
     DT_REEF = reef_params['dt']
@@ -90,11 +97,22 @@ if construction:
         first_sub_dict.pop('init__sloplat', None)
         first_sub_dict.pop('init__wavelength', None)
         first_sub_dict.pop('init__amplitude', None)
-else:
-    reef_params = eros_params
-    # Extract dt REEF and remove it
-    DT_REEF = reef_params['dt']
-    reef_params.pop('dt')
+
+# Add fixed parameters for the model
+# Initialize SL filename 
+first_sub_dict['SLstory__RSLin'] = ['SL', None, None, None]
+# Grid vertical size factor
+first_sub_dict['grid__dmax'] = [100, None, None, None]
+# Grid step size
+first_sub_dict['grid__spacing'] = [1, None, None, None]
+# Coefficient for erosion efficiency, sea-bed
+first_sub_dict['eros__beta1'] = [0.1, None, None, None]
+# Coefficient for erosion efficiency, cliff retreat
+first_sub_dict['eros__beta2'] = [1, None, None, None]
+# Height of notch for volume eroded during cliff retreat
+first_sub_dict['eros__hnotch'] = [1, None, None, None]
+# Max repos angle of clastic sediments
+first_sub_dict['depot__repos'] = [15e-2, None, None, None]
 
 
 # Extracts topographic profiles  
