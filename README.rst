@@ -1,8 +1,8 @@
 =============
-Rosetta model
+Rosetta
 =============
 -----------------------------------------------
-Resolving sea-level, coral growth and tectonics
+Reconstruction Of Sea-level, Ecosystems and Tectonics from Terrace Analysis
 -----------------------------------------------
 
 Description
