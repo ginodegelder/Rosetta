@@ -1122,7 +1122,29 @@ if rank == 0:
     
     for other_rank in range(1, nb_proc):
         comm.send(Df_folder_path, dest=other_rank)
-
+    
+    # Save Inputs file in Figs folder.
+    with open(Folder_path + '/AA-Inputs.txt', 'w') as f:
+        f.write("Construction = ")
+        pprint.pprint(construction, stream = f)
+        f.write("\n")
+        
+        f.write("sea_level = \n")
+        pprint.pprint(sea_level, stream = f)
+        f.write("\n")
+    
+        f.write("reef_params = \n")
+        pprint.pprint(reef_params, stream = f)
+        f.write("\n")
+    
+        f.write("inversion_params = \n")
+        pprint.pprint(inversion_params, stream = f)
+        f.write("\n")
+    
+        f.write("topo_obs = \n")
+        pprint.pprint(topo_obs, stream = f)
+        f.write("\n")
+        
 else:
     Df_folder_path = comm.recv(source = 0)
 
@@ -1161,28 +1183,6 @@ if rank == 0:
 #     Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
 #     os.makedirs(Df_folder_path)
 # =============================================================================
-    
-    # Save Inputs file in Figs folder.
-    with open(Folder_path + '/AA-Inputs.txt', 'w') as f:
-        f.write("Construction = ")
-        pprint.pprint(construction, stream = f)
-        f.write("\n")
-        
-        f.write("sea_level = \n")
-        pprint.pprint(sea_level, stream = f)
-        f.write("\n")
-    
-        f.write("reef_params = \n")
-        pprint.pprint(reef_params, stream = f)
-        f.write("\n")
-    
-        f.write("inversion_params = \n")
-        pprint.pprint(inversion_params, stream = f)
-        f.write("\n")
-    
-        f.write("topo_obs = \n")
-        pprint.pprint(topo_obs, stream = f)
-        f.write("\n")
     
     # Some trace plots for statistics.
     # Creates a folder to store stats figures.
