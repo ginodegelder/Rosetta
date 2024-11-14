@@ -189,6 +189,10 @@ class Metropolis1dStep(MCMCBase):
         self._accept_mat = np.zeros((tune_interval, self.n_vars),
                                     dtype=np.bool_)
         self._accept_ratios = np.zeros(self.n_vars)
+        self._init_prop_S = self.prop_S.copy()
+        # Min and max step sizes
+        self._min_prop_S = self._init_prop_S * 0.05
+        self._max_prop_S = self._init_prop_S * 15
 
     def restart_arrays(self, dataset, x0, n, thin, tune, tune_interval,
                           discard_tuning, posterior_predict):
@@ -256,6 +260,10 @@ class Metropolis1dStep(MCMCBase):
         self.n_samples += self.saved_n_samples
         # Update prop_S to saved one. Check for multi chains.
         self.prop_S = dataset.sample_stats.prop_S[0,-1,:]
+        self._init_prop_S = dataset.sample_stats.prop_S[0,0,:]
+        # Min and max step sizes
+        self._min_prop_S = self._init_prop_S * 0.05
+        self._max_prop_S = self._init_prop_S * 15
 
         # Private arrays
         self._current_iter = self.saved_n_samples + 1
@@ -347,6 +355,7 @@ class Metropolis1dStep(MCMCBase):
             elif self._accept_ratios[i] > 0.5:
                 self.prop_S[i] *= 1.1
                 continue
+        self.prop_S = np.clip(self.prop_S, self._min_prop_S, self._max_prop_S)
 
     def run(self, chains, n, Outs_path, tune=0, tune_interval=1000,
             discard_tuned_samples=False, thin=1):
