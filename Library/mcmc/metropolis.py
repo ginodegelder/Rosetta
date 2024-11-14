@@ -424,6 +424,15 @@ class Metropolis1dStep(MCMCBase):
             # Keep only the last arrays. Multi : use self.i_chain
             posterior_predict = {key: value['data'][0,-1,:] 
                                  for key, value in postpred_items}
+
+            # Fill in dict_save_run in case of early crash
+            dict_save_run = {
+                    f"rank_{rank}" : {
+                                      "x" : posterior_predict[f"x_{rank}"],
+                                      "y" : posterior_predict[f"y_{rank}"]
+                                      }
+                    }
+
             # Empty the extraction.
             postpred_items = None
             #self._x_loglike, posterior_predict = self.loglikelihood(x)
