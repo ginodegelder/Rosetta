@@ -43,6 +43,7 @@ from mpi4py import MPI
 import tempfile
 import shutil
 import traceback
+import warnings
 
 # Get rank and number of processors.
 comm = MPI.COMM_WORLD
@@ -64,12 +65,12 @@ N_CHAINS = inversion_params['n_chains']
 
 # Check if there will be something to plot.
 if STP >= N_SAMPLES:
-    raise Warning(
+    warnings.warn(
         "Starting point for plotting >= number of sample. Nothing will be " \
         "plotted if not restarting from a preexistant model.\n" 
         f"stp = {STP}\n"
         f"n_samples = {N_SAMPLES}"
-        )
+        , UserWarning)
 
 # Use construction_params if construction = True, eros_param if False
 if not construction:
@@ -819,7 +820,7 @@ def run_reef(input_vars):
     with DicoModels().models[ds_in.model_name]:
         ds = (ds_in.xsimlab.run())
         
-    #print("simu rank ", rank, " duration : ", dtime.now() - t0)
+    #print("simu rank ", rank)
     
     # Extracts the last topo profile.
     x = ds.x[:].values
@@ -922,6 +923,9 @@ def loglike(x, dict_save_run, dict_save_vars):
     sum_fit = 0 
     predictions = {}
     
+    #print()
+    #print('save_run',dict_save_run)
+    #print()
     if focus_run == 'ALL':
         for key in dict_input_vars.keys():
             num_key = int(''.join(filter(str.isdigit, key)))
