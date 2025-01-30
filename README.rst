@@ -1,14 +1,24 @@
 =============
-Rosetta model
+Rosetta
 =============
 -----------------------------------------------
-Resolving sea-level, coral growth and tectonics
+Reconstruction Of Sea-level, Ecosystems and Tectonics from Terrace Analysis
 -----------------------------------------------
 
 Description
 ===========
 
-This model resolves blabla
+This model is a combination of a coral reef construction model (new version of REEF; Husson et al., 2018; Pastier et al., 2019) and a bayesian inversion model (Hedjazian et al., 2019). The resulting ROSETTA model runs a given number of forward REEF models, in order to diminish the misfit between the modelled and observed 1-D topographic profile, using a Monte-Carlo Markov Chain (MCMC) sampling. Based on a Bayesian framework, the solution of our model is a posterior probability distribution describing the probability of the model parameters (here the past sea-level variations and the REEF parameters), given the observed data (here the topo-bathymetry of a marine terrace sequence).
+
+Further reading:
+
+de Gelder, G., Hedjazian, N., Husson, L., Bodin, T., Pastier, A.-M., Boucharat, Y., Pedoja, K., Solihuddin, T. and Cahyarini, S.Y. (Submitted) Bayesian reconstruction of sea-level and hydroclimates from coastal landform inversion, submitted to Earth Surface Processes and Landforms. Preprint: https://doi.org/10.31223/X5B117
+
+Hedjazian, N., Bodin, T., & Métivier, L. (2019). An optimal transport approach to linearized inversion of receiver functions. Geophysical Journal International, 216(1), 130-147.
+
+Husson, L., Pastier, A. M., Pedoja, K., Elliot, M., Paillard, D., Authemayou, C., ... & Cahyarini, S. Y. (2018). Reef carbonate productivity during quaternary sea level oscillations. Geochemistry, Geophysics, Geosystems, 19(4), 1148-1164.
+
+Pastier, A. M., Husson, L., Pedoja, K., Bézos, A., Authemayou, C., Arias‐Ruiz, C., & Cahyarini, S. Y. (2019). Genesis and architecture of sequences of Quaternary coral reef terraces: Insights from numerical models. Geochemistry, Geophysics, Geosystems, 20(8), 4248-4272.
 
 Installation 
 ------------
