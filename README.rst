@@ -39,16 +39,22 @@ Do the same with python, and make sure you are using a python3 version.
 If you want to run the model on a cluster/HPC, you might need to create a virtual environment to install all the libraries needed for the model. You can skip this part if you run the model locally.
 Creating a python virtual environment named 'virtualenv' in 'home' directory::
 
-        yboucharat@Yannick:~$ python3.11 -m venv virtualenv
+        cd ~/
+	python3.11 -m venv virtualenv
 
 Activation::
 
-        yboucharat@Yannick:~$ source virtualenv/bin/activate
+        source virtualenv/bin/activate
 
 You are now in your python3.11 virtual environment where you can install the needed libraries.
 
+Now, git clone this repository::
+
+	git clone https://github.com/YBoucharat/Rosetta
+
 To install the needed libraries::
 
+	cd Rosetta
         pip install -r requirements.txt
 
 Go to Library/reef and run in the terminal::
@@ -92,6 +98,12 @@ The files with the observed topographies have to be of the following form (x and
 Run the model :
 ---------------
 
+Go to the Rosetta folder::
+
+	cd /path/to/Rosetta
+
+If you created a virtual environment for the installation, do not forget to activate it before running.
+
  - If you can use one core for each profile, you can run the model as follows::
 
         mpirun -np <number of cores/profiles> --machinefile "machinefile.txt" python3 Rosetta.py
@@ -115,7 +127,7 @@ Outputs :
 All the outputs are in "Outs/FigS4d/" folder.
 The outputs from one model are stored in a directory named : "Figs_<n_samples>_sig.<sigma>_ip.<ipstep>_<DAY-MONTH-YEAR_HOUR-MIN at the end of the run>".
  - There will be one subfolder for each profile, named by the name of the profile, containing the histogramms for each reef parameters corresponding to the profile, its best, mean and median profile in .txt and the profile figures. 
- - "Dataframes" folder contains all the data saved at the end of the inversion. Data are saved in .pkl format, readable with panda.
+ - "Dataframes" folder contains all the data saved at the end of the inversion. Data are saved in .pkl format, readable with panda. The file MCMC_raw.nc is the raw output in a netcdf format, readable with the arviz library (python). Arviz should have been downloaded while running the command "pip install -r requirements.txt"
  - "SL" folder contains histogramms of the free SL nodes, best, mean and median SL history in .txt format, and SL plots.
  - "Stats" folder contains the evolution of the best acceptance ratio of the profiles, the best loglikelihood, the acceptance ratio for each parameters, and the step evolution (prop_S) for each free parameters. 
  - "AA-Inputs" file contains all the Inputs for the model.
