@@ -3,8 +3,7 @@ import sys
 
 # sys.path.append("/home/nhedjazi/src/sealevel")
 # sys.path.append("/home/nhedjazi/src/sealevel")
-sys.path.insert(0, os.path.abspath('./reef'))
-sys.path.insert(1, os.path.abspath('./mcmc'))
+sys.path.insert(1, os.path.abspath('../'))
 
 # Imports
 import numpy as np
@@ -15,7 +14,7 @@ from scipy import interpolate
 from scipy.interpolate import interp1d
 from reef import tools as tools
 from reef import main as main
-from rouzo import Fig2c as Fig2c
+from ScriptsFigs_deGelder_etal_2025 import Fig2c as Fig2c
 from mcmc import misfit as mis
 from mcmc.metropolis import Metropolis1dStep
 from scipy import linalg
@@ -28,8 +27,8 @@ tune_interval = 50000
 prop_S = np.array([5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 50, 2, 2, 0.1])
 
 # load nodes for SL-curve and observed topography
-t, e = tools.readfile("SL/Nodes153.dat")
-x_obs, y_obs = tools.readfile("../reef/examples/TopoObs153_Fig2c.dat")
+t, e = tools.readfile("../SL_nodes/Nodes153.dat")
+x_obs, y_obs = tools.readfile("../Topo_obs/TopoObs153_Fig2c.dat")
 tstart = 153  # Length of SL curve
 stp = 0  # Starting point for plotting
 

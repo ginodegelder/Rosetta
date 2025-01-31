@@ -2,8 +2,7 @@ import os
 import sys
 
 # sys.path.append("/home/nhedjazi/src/sealevel")
-sys.path.insert(0, os.path.abspath('./reef'))
-sys.path.insert(1, os.path.abspath('./mcmc'))
+sys.path.insert(1, os.path.abspath('../'))
 
 # Imports
 import numpy as np
@@ -14,7 +13,7 @@ from scipy import interpolate
 from scipy.interpolate import interp1d
 from reef import tools as tools
 from reef import main as main
-from rouzo import Fig5d as Fig5d
+from ScriptsFigs_deGelder_etal_2025 import Fig5d as Fig5d
 from mcmc import misfit as mis
 from mcmc.metropolis import Metropolis1dStep
 from scipy import linalg
@@ -34,11 +33,11 @@ prop_S = np.array([1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05
 
 # load nodes for SL-curve and observed topography
 n_topo = 3  # number of profiles to consider
-t, e = tools.readfile("SL/Nodes450.dat")
+t, e = tools.readfile("../SL_nodes/Nodes450.dat")
 x_obs = []
 y_obs = []
 for i in range(n_topo):
-     x_obs_tmp, y_obs_tmp = tools.readfile("../reef/examples/TopoObs_Corinth_Prof{}.dat".format(i))
+     x_obs_tmp, y_obs_tmp = tools.readfile("../Topo_obs/TopoObs_Corinth_Prof{}.dat".format(i))
      x_obs.append(x_obs_tmp)
      y_obs.append(y_obs_tmp)
 tstart = 450  # Length of SL curve
@@ -469,7 +468,7 @@ fig.savefig('Figs/Fig5d/Stats-parameter_accept_ratio.pdf')
 # Profile plot
 best = np.argmax(chain.stats["loglikelihood"][stp:])
 
-x_obs_tmp, y_obs_tmp = tools.readfile("../reef/examples/TopoObs_Corinth_Prof{}.dat".format(i))
+x_obs_tmp, y_obs_tmp = tools.readfile("../Topo_obs/TopoObs_Corinth_Prof{}.dat".format(i))
 
 for i in range(n_topo):
     x_n = chain.posterior_predictive["x_{}".format(i)][0, stp:, :]

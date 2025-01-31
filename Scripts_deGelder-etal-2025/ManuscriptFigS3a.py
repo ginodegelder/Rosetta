@@ -2,8 +2,8 @@ import os
 import sys
 
 # sys.path.append("/home/nhedjazi/src/sealevel")
-sys.path.insert(0, os.path.abspath('./reef'))
-sys.path.insert(1, os.path.abspath('./mcmc'))
+# sys.path.append("/home/nhedjazi/src/sealevel")
+sys.path.insert(1, os.path.abspath('../'))
 
 # Imports
 import numpy as np
@@ -14,7 +14,7 @@ from scipy import interpolate
 from scipy.interpolate import interp1d
 from reef import tools as tools
 from reef import main as main
-from rouzo import Fig2d as Fig2d
+from ScriptsFigs_deGelder_etal_2025 import Fig2b as Fig2b
 from mcmc import misfit as mis
 from mcmc.metropolis import Metropolis1dStep
 from scipy import linalg
@@ -24,17 +24,11 @@ from mcmc import covariance_matrix as cov
 n_samples = 1000000
 n_tune = 1000000
 tune_interval = 50000
-prop_S = np.array([5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5])
+prop_S = np.array([5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 50, 2, 2, 0.1])
 
 # load nodes for SL-curve and observed topography
-n_topo = 2  # number of profiles to consider
-t, e = tools.readfile("SL/Nodes153.dat")
-x_obs = []
-y_obs = []
-for i in range(n_topo):
-     x_obs_tmp, y_obs_tmp = tools.readfile("../reef/examples/TopoObs153_{}.dat".format(i))
-     x_obs.append(x_obs_tmp)
-     y_obs.append(y_obs_tmp)
+t, e = tools.readfile("../SL_nodes/Nodes153.dat")
+x_obs, y_obs = tools.readfile("../Topo_obs/TopoObs_Fig2b.dat")
 tstart = 153  # Length of SL curve
 stp = 0  # Starting point for plotting
 
@@ -43,14 +37,14 @@ zmax = 20.
 zmin = 1
 zow = 2
 tmax = -1
-zb = 9
-v0 = 200
-u0 = [0.7, 1.4]
+# zb = 9
+# v0 = 200
+# u0 = 0.7
 G0 = 0
-slopi = 8
+# slopi = 8
 dbg = False
 dt0 = 0
-dx_reef = 1
+dx_reef = 10
 
 # Select starting point and bounds
 # a0 = 93 + np.random.rand() * 14
@@ -97,7 +91,12 @@ a5 = 100. #True value
 b5 = -18. #True value
 a6 = 111. #True value
 b6 = -47. #True value
-x0 = np.array([a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6])
+c1 = 200. #Erosion rate
+d1 = 8. #Initial slope
+e1 = 9. #Wave base
+f1 = 0.7 #Uplift Rate
+
+x0 = np.array([a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, c1, d1, e1, f1])
 bounds = np.array([[21, 30],
                     [-100, 0],
                     [45, 54],
@@ -111,39 +110,42 @@ bounds = np.array([[21, 30],
                     [95, 104],
                     [-100, 0],
                     [105, 114],
-                    [-100, 0]])
+                    [-100, 0],
+                    [100, 500],
+                    [5, 11],
+                    [6, 12],
+                    [0.5, 1.0]])
 
 # Vertical interpolation of x_obs and y_obs
-ipmin = [0, 0]
-ipmax = [100.05, 175.05]
+ipmin = 0
+ipmax = 100.05
+# ipmax = 175.05
 ipstep = 1
-for i in range(n_topo):
-     ipobs = interp1d(y_obs[i], x_obs[i]) # interpolate x_obs as a function of y_obs
-     y_obs[i] = np.arange(ipmin[i], ipmax[i], ipstep)
-     x_obs[i] = ipobs(y_obs[i])
-     x_obs[i] = x_obs[i] - x_obs[i][0]
+ipobs = interp1d(y_obs, x_obs) # interpolate x_obs as a function of y_obs
+y_obs_n = np.arange(ipmin, ipmax, ipstep)
+x_obs_n = ipobs(y_obs_n)
+x_obs_n = x_obs_n - x_obs_n[0]
 
 # Computing inverse covariance
-n1 = [101, 176]    # Number of matrix elements: (ipmax-ipmin) / ipstep, round up to full number
+n1 = 101    # Number of matrix elements: (ipmax-ipmin) / ipstep, round up to full number
+# n1 = 176
 sigma = 50  # Amplitude in m
 corr_l = 10  # Correlation length in m
 dx_cov = dx_reef  # Define the length between two samples (in meters)
 gamma = 1  # Exponent in the kernel. 1 for laplacian, 2 for gaussian
 
 # First matrix: the physical model error
-icovar = []
-for i in range(n_topo):
-    covar = cov.exponential_covar_1d(
-        n1[i], sigma, corr_l, dx=dx_cov, gamma=gamma, truncate=None)  # Define the covariance
-    # Second one, measurement error
-    #eps = 1e-1*sigma*np.identity(n1)
-    #icovar = linalg.inv(covar+eps)  # This computes the inverse covariance
-    icovar.append(linalg.inv(covar))  # This computes the inverse covariance
+covar = cov.exponential_covar_1d(
+    n1, sigma, corr_l, dx=dx_cov, gamma=gamma, truncate=None)  # Define the covariance
+# Second one, measurement error
+#eps = 1e-1*sigma*np.identity(n1)
+#icovar = linalg.inv(covar+eps)  # This computes the inverse covariance
+icovar = linalg.inv(covar)  # This computes the inverse covariance
 
 # Create noise
-#mean = np.zeros(n1)
+mean = np.zeros(n1)
 #noise1 = np.random.multivariate_normal(mean, covar + eps, 1).flatten()
-#noise1 = np.random.multivariate_normal(mean, covar, 1).flatten()
+noise1 = np.random.multivariate_normal(mean, covar, 1).flatten()
 
 # Make noise same length as y_obs and add to y_obs
 #nox = np.arange(0, len(y_obs), el)
@@ -198,47 +200,45 @@ def param(x):
     e[7] = x[11]
     t[8] = x[12]
     e[8] = x[13]
+
+    v0 = x[14]
+    slopi = x[15]
+    zb = x[16]
+    u0 = x[17]
+
     pc = interpolate.PchipInterpolator(t, e, axis=0, extrapolate=None)
     tnew = np.arange(152, -1, -1)
     enew = pc(tnew)
-    return tnew, enew
+    return tnew, enew, v0, slopi, zb, u0
 
-def misfit(x_n, x_obs, icovar_i):
-    fit = mis.sqmahalanobis(x_n, x_obs, icovar_i)
+def misfit(x_n, x_obs_n):
+    fit = mis.sqmahalanobis(x_n, x_obs_n, icovar)
     return fit
 
-def align(x, y, ipmin, ipmax):
+def align(x, y):
     ipmod = interp1d(y, x) # interpolate x as a function of y
-    y_na = np.arange(ipmin, ipmax, ipstep)
-    x_na = ipmod(y_na)
-    x_na = x_na - x_na[0]
-    return y_na, x_na
+    y_n = np.arange(ipmin, ipmax, ipstep)
+    x_n = ipmod(y_n)
+    x_n = x_n - x_n[0]
+    return y_n, x_n
 
 def loglike(x):
-    t, e = param(x)
+    t, e, v0, slopi, zb, u0 = param(x)
     xmin = 100000  # Limits for final plots
     xmax = 0
     ymin = 10000
     ymax = -1000
-
-    sum_fit = 0
+    x, y, dz, xmin, xmax, ymin, ymax, x_ini, y_ini, dt_final = \
+        main.reef(t, e, tmax, u0, slopi, v0, zb, dx_reef, dt0, xmin, xmax,
+                      ymin, ymax)
+    y_n, x_n = align(x, y)
+    fit = misfit(x_n, x_obs_n)
     predictions = {}
-    for i in range(n_topo):
-        x, y, dz, xmin, xmax, ymin, ymax, x_ini, y_ini, dt_final = \
-            main.reef(t, e, tmax, u0[i], slopi, v0, zb, dx_reef, dt0, xmin, xmax, ymin, ymax)
-        y_n, x_n = align(x, y, ipmin[i], ipmax[i])
-        fit = misfit(x_n, x_obs[i], icovar[i])
-        xchar = "x_{}".format(i)
-        ychar = "y_{}".format(i)
-
-        predictions[xchar] = x_n
-        predictions[ychar] = y_n
-        sum_fit += fit
-
+    predictions["x_n"] = x_n
+    predictions["y_n"] = y_n
     predictions["t"] = t
     predictions["e"] = e
-
-    return -0.5 * sum_fit, predictions
+    return -0.5 * fit, predictions
     # return 0, predictions
 
 chain = Metropolis1dStep()
@@ -268,22 +268,22 @@ print(chain.duration)
 fig=plt.figure()
 plt.plot(chain.stats["loglikelihood"])
 # fig.savefig('Figs/Stats-Loglikelihood.png')
-fig.savefig("Figs/Fig2d/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["prop_S"][1:])
 # fig.savefig('Figs/Stats-prop_S.png')
-fig.savefig("Figs/Fig2d/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["accept_ratio"][1:])
 # fig.savefig('Figs/Stats-accept_ratio.png')
-fig.savefig("Figs/Fig2d/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["parameter_accept_ratio"][1:])
 # fig.savefig('Figs/Stats-parameter_accept_ratio.png')
-fig.savefig("Figs/Fig2d/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 0][stp:],
@@ -291,7 +291,7 @@ df = pd.DataFrame({"Age (ka)" : chain.samples[:, 0][stp:],
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
 # fig.savefig('Figs/Histogram-2D-1.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 2][stp:],
@@ -299,7 +299,7 @@ df = pd.DataFrame({"Age (ka)" : chain.samples[:, 2][stp:],
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
 # fig.savefig('Figs/Histogram-2D-2.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 3
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 4][stp:],
@@ -307,7 +307,7 @@ df = pd.DataFrame({"Age (ka)" : chain.samples[:, 4][stp:],
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
 # fig.savefig('Figs/Histogram-2D-3.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
 
 # Box 4
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 6][stp:],
@@ -315,7 +315,7 @@ df = pd.DataFrame({"Age (ka)" : chain.samples[:, 6][stp:],
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
 # fig.savefig('Figs/Histogram-2D-4.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-4.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-4.pdf", format="pdf", bbox_inches="tight")
 
 # Box 5
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 8][stp:],
@@ -323,36 +323,68 @@ df = pd.DataFrame({"Age (ka)" : chain.samples[:, 8][stp:],
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
 # fig.savefig('Figs/Histogram-2D-5.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-5.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-5.pdf", format="pdf", bbox_inches="tight")
 
 # Box 6
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 10][stp:],
                     "SL Elevation (m)" : chain.samples[:, 11][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
 # fig.savefig('Figs/Histogram-2D-6.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-6.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-6.pdf", format="pdf", bbox_inches="tight")
 
 # Box 7
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 12][stp:],
                     "SL Elevation (m)" : chain.samples[:, 13][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
 # fig.savefig('Figs/Histogram-2D-7.png')
-fig.savefig("Figs/Fig2d/Histogram-2D-7.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS3a/Histogram-2D-7.pdf", format="pdf", bbox_inches="tight")
 
-# # Profile plot
+# Box 2.1
+df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 14][stp:],
+                    "Initial slope (%)" : chain.samples[:, 15][stp:]})
+fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Initial slope (%)", kind="hex", palette="colorblind")
+fig.savefig("Figs/FigS3a/Histogram-2D-ER-IS.pdf", format="pdf", bbox_inches="tight")
+
+# Box 2.2
+df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 14][stp:],
+                    "Wave base depth (m)" : chain.samples[:, 16][stp:]})
+fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Wave base depth (m)", kind="hex", palette="colorblind")
+fig.savefig("Figs/FigS3a/Histogram-2D-ER-WB.pdf", format="pdf", bbox_inches="tight")
+
+# Box 2.3
+df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 15][stp:],
+                    "Wave base depth (m)" : chain.samples[:, 16][stp:]})
+fig = sns.jointplot(data=df, x="Initial slope (%)", y="Wave base depth (m)", kind="hex", palette="colorblind")
+fig.savefig("Figs/FigS3a/Histogram-2D-IS-WB.pdf", format="pdf", bbox_inches="tight")
+
+# Box 2.4
+df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 14][stp:],
+                    "Uplift Rate (mm/yr)" : chain.samples[:, 17][stp:]})
+fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
+fig.savefig("Figs/FigS3a/Histogram-2D-ER-UR.pdf", format="pdf", bbox_inches="tight")
+
+# Box 2.5
+df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 15][stp:],
+                    "Uplift Rate (mm/yr)" : chain.samples[:, 17][stp:]})
+fig = sns.jointplot(data=df, x="Initial slope (%)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
+fig.savefig("Figs/FigS3a/Histogram-2D-IS-UR.pdf", format="pdf", bbox_inches="tight")
+
+# Box 2.6
+df = pd.DataFrame({"Wave base depth (m)" : chain.samples[:, 16][stp:],
+                    "Uplift Rate (mm/yr)" : chain.samples[:, 17][stp:]})
+fig = sns.jointplot(data=df, x="Wave base depth (m)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
+fig.savefig("Figs/FigS3a/Histogram-2D-WB-UR.pdf", format="pdf", bbox_inches="tight")
+
+# Profile plot
 best = np.argmax(chain.stats["loglikelihood"][stp:])
-
-x_obs_tmp, y_obs_tmp = tools.readfile("../reef/examples/TopoObs153_{}.dat".format(i))
-
-for i in range(n_topo):
-    x_n = chain.posterior_predictive["x_{}".format(i)][0, stp:, :]
-    y_n = chain.posterior_predictive["y_{}".format(i)][0, 0, :]
-    fig, fig2 = Fig2d.profile(x_n, y_n, x_obs, y_obs, best, i)
+x_n = chain.posterior_predictive["x_n"][0, stp:, :]
+y_n = chain.posterior_predictive["y_n"][0, 0, :]
+fig, fig2 = Fig2b.profile(x_n, y_n, x_obs_n, y_obs_n, best)
 
 # Sea-level plot
 xsl = np.arange(0, tstart, 1)
 ysl = chain.posterior_predictive["e"][0, :, :][stp:]
-fig, fig2 = Fig2d.sealevel(xsl, ysl, best)
+fig, fig2 = Fig2b.sealevel(xsl, ysl, best)
 
 plt.show()
 

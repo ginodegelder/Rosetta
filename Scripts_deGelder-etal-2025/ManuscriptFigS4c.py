@@ -2,8 +2,7 @@ import os
 import sys
 
 # sys.path.append("/home/nhedjazi/src/sealevel")
-sys.path.insert(0, os.path.abspath('./reef'))
-sys.path.insert(1, os.path.abspath('./mcmc'))
+sys.path.insert(1, os.path.abspath('../'))
 
 # Imports
 import numpy as np
@@ -14,7 +13,7 @@ from scipy import interpolate
 from scipy.interpolate import interp1d
 from reef import tools as tools
 from reef import main as main
-from rouzo import FigS6b as FigS6b
+from ScriptsFigs_deGelder_etal_2025 import FigS4c as FigS4c
 from mcmc import misfit as mis
 from mcmc.metropolis import Metropolis1dStep
 from scipy import linalg
@@ -30,8 +29,8 @@ prop_S = np.array([1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05
                    1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 0.05, 1, 1, 50, 2, 2, 0.1])
 
 # load nodes for SL-curve and observed topography
-t, e = tools.readfile("SL/Nodes450.dat")
-x_obs, y_obs = tools.readfile("../reef/examples/TopoObs_SantaCruz.dat")
+t, e = tools.readfile("../SL_nodes/Nodes450.dat")
+x_obs, y_obs = tools.readfile("../Topo_obs/TopoObs_SantaCruz.dat")
 tstart = 450  # Length of SL curve
 stp = 50000  # Starting point for plotting
 
@@ -129,7 +128,7 @@ b37 = -121.
 c1 = 400. #Erosion rate
 d1 = 10. #Initial slope
 e1 = 5. #Wave base
-f1 = 0.4 #Uplift Rate
+f1 = 1.4 #Uplift Rate
 
 x0 = np.array([a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, a7, b7, a8, b8, a9, b9,
                a10, b10, a11, b11, a12, b12, a13, b13, a14, b14, a15, b15, a16, b16, a17, b17, a18, b18, a19, b19,
@@ -214,7 +213,7 @@ bounds = np.array([[4, 8],
                     [100, 800],
                     [5, 15],
                     [1, 10],
-                    [0.33, 0.47]])
+                    [1.3, 1.6]])
 
 # 0.33, 0.47: T1 is MIS 5e
 # 0.52, 0.68: T2 is MIS 5e
@@ -225,14 +224,14 @@ bounds = np.array([[4, 8],
 # Vertical interpolation of x_obs and y_obs
 ipmin = -8  # Santa-Cruz
 ipmax = 185.05  # Santa-Cruz
-ipstep = 1  # related to uncertainty in terrace height
+ipstep = 2  # related to uncertainty in terrace height
 ipobs = interp1d(y_obs, x_obs)  # interpolate x_obs as a function of y_obs
 y_obs_n = np.arange(ipmin, ipmax, ipstep)
 x_obs_n = ipobs(y_obs_n)
 x_obs_n = x_obs_n - x_obs_n[0]
 
 # Computing inverse covariance
-n1 = 194    # Number of matrix elements: (ipmax-ipmin) / ipstep, round up to full number
+n1 = 97    # Number of matrix elements: (ipmax-ipmin) / ipstep, round up to full number
 sigma = 100  # Amplitude in m, related to uncertainty in terrace width
 corr_l = 10  # Correlation length in m, related to uncertainty in cliff height
 dx_cov = dx_reef  # Define the length between two samples (in meters)
@@ -400,311 +399,311 @@ print(chain.duration)
 # Some trace plots
 fig=plt.figure()
 plt.plot(chain.stats["loglikelihood"][1:])
-plt.savefig("Figs/FigS6b/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["prop_S"][1:])
-plt.savefig("Figs/FigS6b/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["accept_ratio"][1:])
-plt.savefig("Figs/FigS6b/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["parameter_accept_ratio"][1:])
-plt.savefig("Figs/FigS6b/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 # Profile plot
 best = np.argmax(chain.stats["loglikelihood"][stp:])
 x_n = chain.posterior_predictive["x_n"][0, stp:, :]
 y_n = chain.posterior_predictive["y_n"][0, 0, :]
-fig, fig2 = FigS6b.profile(x_n, y_n, x_obs_n, y_obs_n, best)
+fig, fig2 = FigS4c.profile(x_n, y_n, x_obs_n, y_obs_n, best)
 
 mean = np.mean(x_n, axis=0)
 median = np.percentile(x_n[:, :], 50, axis=0)
 best_prof = x_n[best, :]
-np.savetxt("Figs/FigS6b/MeanProfile.txt", mean)
-np.savetxt("Figs/FigS6b/MedianProfile.txt", median)
-np.savetxt("Figs/FigS6b/BestProfile.txt", best_prof)
+np.savetxt("Figs/FigS4c/MeanProfile.txt", mean)
+np.savetxt("Figs/FigS4c/MedianProfile.txt", median)
+np.savetxt("Figs/FigS4c/BestProfile.txt", best_prof)
 
 all_loglikes = chain.stats["loglikelihood"][stp:, :]
 best_loglike = all_loglikes[best, :]
-np.savetxt("Figs/FigS6b/BestLogLike.txt", best_loglike)
+np.savetxt("Figs/FigS4c/BestLogLike.txt", best_loglike)
 
 # Sea-level plot
 xsl = np.arange(0, tstart, 1)
 ysl = chain.posterior_predictive["e"][0, :, :][stp:]
-fig, fig2 = FigS6b.sealevel(xsl, ysl, best)
+fig, fig2 = FigS4c.sealevel(xsl, ysl, best)
 
 mean = np.mean(ysl, axis=0)
 median = np.percentile(ysl[:, :], 50, axis=0)
 best_sl = ysl[best, :]
-np.savetxt("Figs/FigS6b/MeanSL.txt", mean)
-np.savetxt("Figs/FigS6b/MedianSL.txt", median)
-np.savetxt("Figs/FigS6b/BestSL.txt", best_sl)
+np.savetxt("Figs/FigS4c/MeanSL.txt", mean)
+np.savetxt("Figs/FigS4c/MedianSL.txt", median)
+np.savetxt("Figs/FigS4c/BestSL.txt", best_sl)
 
 # Box 1.1
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 0][stp:],
                     "SL Elevation (m)" : chain.samples[:, 1][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.2
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 2][stp:],
                     "SL Elevation (m)" : chain.samples[:, 3][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.3
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 4][stp:],
                     "SL Elevation (m)" : chain.samples[:, 5][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.4
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 6][stp:],
                     "SL Elevation (m)" : chain.samples[:, 7][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-4.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-4.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.5
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 8][stp:],
                     "SL Elevation (m)" : chain.samples[:, 9][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-5.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-5.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.6
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 10][stp:],
                     "SL Elevation (m)" : chain.samples[:, 11][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-6.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-6.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.7
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 12][stp:],
                     "SL Elevation (m)" : chain.samples[:, 13][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-7.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-7.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.8
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 14][stp:],
                     "SL Elevation (m)" : chain.samples[:, 15][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-8.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-8.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.9
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 16][stp:],
                     "SL Elevation (m)" : chain.samples[:, 17][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-9.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-9.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.10
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 18][stp:],
                     "SL Elevation (m)" : chain.samples[:, 19][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-10.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-10.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.11
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 20][stp:],
                     "SL Elevation (m)" : chain.samples[:, 21][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-11.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-11.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.12
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 22][stp:],
                     "SL Elevation (m)" : chain.samples[:, 23][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-12.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-12.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.13
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 24][stp:],
                     "SL Elevation (m)" : chain.samples[:, 25][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-13.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-13.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.14
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 26][stp:],
                     "SL Elevation (m)" : chain.samples[:, 27][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-14.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-14.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.15
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 28][stp:],
                     "SL Elevation (m)" : chain.samples[:, 29][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-15.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-15.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.16
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 30][stp:],
                     "SL Elevation (m)" : chain.samples[:, 31][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-16.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-16.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.17
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 32][stp:],
                     "SL Elevation (m)" : chain.samples[:, 33][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-17.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-17.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.18
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 34][stp:],
                     "SL Elevation (m)" : chain.samples[:, 35][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-18.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-18.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.19
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 36][stp:],
                     "SL Elevation (m)" : chain.samples[:, 37][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-19.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-19.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.20
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 38][stp:],
                     "SL Elevation (m)" : chain.samples[:, 39][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-20.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-20.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.21
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 40][stp:],
                     "SL Elevation (m)" : chain.samples[:, 41][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-21.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-21.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.22
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 42][stp:],
                     "SL Elevation (m)" : chain.samples[:, 43][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-22.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-22.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.23
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 44][stp:],
                     "SL Elevation (m)" : chain.samples[:, 45][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-23.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-23.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.24
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 46][stp:],
                     "SL Elevation (m)" : chain.samples[:, 47][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-24.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-24.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.25
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 48][stp:],
                     "SL Elevation (m)" : chain.samples[:, 49][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-25.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-25.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.26
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 50][stp:],
                     "SL Elevation (m)" : chain.samples[:, 51][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-26.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-26.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.27
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 52][stp:],
                     "SL Elevation (m)" : chain.samples[:, 53][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-27.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-27.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.28
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 54][stp:],
                     "SL Elevation (m)" : chain.samples[:, 55][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-28.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-28.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.29
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 56][stp:],
                     "SL Elevation (m)" : chain.samples[:, 57][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-29.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-29.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.30
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 58][stp:],
                     "SL Elevation (m)" : chain.samples[:, 59][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-30.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-30.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.31
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 60][stp:],
                     "SL Elevation (m)" : chain.samples[:, 61][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-31.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-31.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.32
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 62][stp:],
                     "SL Elevation (m)" : chain.samples[:, 63][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-32.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-32.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.33
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 64][stp:],
                     "SL Elevation (m)" : chain.samples[:, 65][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-33.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-33.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.34
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 66][stp:],
                     "SL Elevation (m)" : chain.samples[:, 67][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-34.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-34.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.35
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 68][stp:],
                     "SL Elevation (m)" : chain.samples[:, 69][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-35.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-35.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.36
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 70][stp:],
                     "SL Elevation (m)" : chain.samples[:, 71][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-36.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-36.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.37
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 72][stp:],
                     "SL Elevation (m)" : chain.samples[:, 73][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-37.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-37.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.38
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 74][stp:],
                     "SL Elevation (m)" : chain.samples[:, 75][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS6b/Histogram-2D-38.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS4c/Histogram-2D-38.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.1
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 76][stp:],
                     "Initial slope (%)" : chain.samples[:, 77][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Initial slope (%)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS6b/Histogram-2D-ER-IS.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS4c/Histogram-2D-ER-IS.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.2
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 76][stp:],
                     "Wave base depth (m)" : chain.samples[:, 78][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Wave base depth (m)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS6b/Histogram-2D-ER-WB.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS4c/Histogram-2D-ER-WB.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.3
 df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 77][stp:],
                     "Wave base depth (m)" : chain.samples[:, 78][stp:]})
 fig = sns.jointplot(data=df, x="Initial slope (%)", y="Wave base depth (m)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS6b/Histogram-2D-IS-WB.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS4c/Histogram-2D-IS-WB.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.4
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 76][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 79][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS6b/Histogram-2D-ER-UR.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS4c/Histogram-2D-ER-UR.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.5
 df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 77][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 79][stp:]})
 fig = sns.jointplot(data=df, x="Initial slope (%)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS6b/Histogram-2D-IS-UR.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS4c/Histogram-2D-IS-UR.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.6
 df = pd.DataFrame({"Wave base depth (m)" : chain.samples[:, 78][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 79][stp:]})
 fig = sns.jointplot(data=df, x="Wave base depth (m)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS6b/Histogram-2D-WB-UR.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("Figs/FigS4c/Histogram-2D-WB-UR.pdf", format="pdf", bbox_inches="tight")
 
 plt.show()

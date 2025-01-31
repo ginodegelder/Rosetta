@@ -2,8 +2,7 @@ import os
 import sys
 
 # sys.path.append("/home/nhedjazi/src/sealevel")
-sys.path.insert(0, os.path.abspath('./reef'))
-sys.path.insert(1, os.path.abspath('./mcmc'))
+sys.path.insert(1, os.path.abspath('../'))
 
 # Imports
 import numpy as np
@@ -14,21 +13,21 @@ from scipy import interpolate
 from scipy.interpolate import interp1d
 from reef import tools as tools
 from reef import main as main
-from rouzo import Fig2a as Fig2a
+from ScriptsFigs_deGelder_etal_2025 import FigS2 as FigS2
 from mcmc import misfit as mis
 from mcmc.metropolis import Metropolis1dStep
 from scipy import linalg
 from mcmc import covariance_matrix as cov
 
 # Number of samples, tuner and step-sizes
-n_samples = 1000000
+n_samples = 10000
 n_tune = 1000000
 tune_interval = 50000
 prop_S = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
 
 # load nodes for SL-curve and observed topography
-t, e = tools.readfile("SL/Nodes80.dat")
-x_obs, y_obs = tools.readfile("../reef/examples/TopoObs_Fig2a.dat")
+t, e = tools.readfile("../SL_nodes/Nodes80.dat")
+x_obs, y_obs = tools.readfile("../Topo_obs/TopoObs_Fig2a.dat")
 tstart = 80  # Length of SL curve
 stp = 0  # Starting point for plotting
 
@@ -76,40 +75,54 @@ bounds = np.array([[33, 53],
                     [-140, 0]])
 
 # Vertical interpolation of x_obs and y_obs
-ipmin = 0
-ipmax = 60.05
-ipstep = 1
-ipobs = interp1d(y_obs, x_obs) # interpolate x_obs as a function of y_obs
-y_obs_n = np.arange(ipmin, ipmax, ipstep)
-x_obs_n = ipobs(y_obs_n)
+ipmin = 1015
+ipmax = 2215
+ipstep = 150
+ipobs = interp1d(x_obs, y_obs) # interpolate x_obs as a function of y_obs
+x_obs_n = np.arange(ipmin, ipmax, ipstep)
+y_obs_n = ipobs(x_obs_n)
 x_obs_n = x_obs_n - x_obs_n[0]
 
 # Computing inverse covariance
-n1 = 61    # Number of matrix elements: (ipmax-ipmin) / ipstep, round up to full number
-sigma = 50  # Amplitude in m
-corr_l = 10  # Correlation length in m
+n1 = 8    # Number of matrix elements: (ipmax-ipmin) / ipstep, round up to full number
+sigma = 1  # Amplitude in m
+corr_l = 1  # Correlation length in m
 dx_cov = dx_reef  # Define the length between two samples (in meters)
 gamma = 1  # Exponent in the kernel. 1 for laplacian, 2 for gaussian
+
+# ### Topo obs
+# ipmin = min(x_obs)  # Min x value from observed topo
+# ipmax = max(x_obs)  # Max x value from observed topo
+# # y_obs_min = min(y_obs)
+# # y_obs_max = max(y_obs)
+# y_obs_min = 0
+# y_obs_max = 100
+#
+# ### Interpolation values
+# ipstep = 50
+# sigma = 2  # Amplitude in m
+# corr_l = 3  # Correlation length in m
+#
+# ## Horizontal interpolation of x_obs and y_obs
+# ipobs = interp1d(x_obs, y_obs)  # interpolate y_obs as a function of x_obs
+# x_obs_n = np.arange(ipmin, ipmax, ipstep)
+# y_obs_n = ipobs(x_obs_n)
+#
+# ## Computing inverse covariance
+# n1 = int(-(-(ipmax-ipmin)//ipstep)) # Number of matrix elements, round up to full number
+# dx_cov=dx_reef
+# gamma = 1  # Exponent in the kernel. 1 for laplacian, 2 for gaussian
 
 # First matrix: the physical model error
 covar = cov.exponential_covar_1d(
     n1, sigma, corr_l, dx=dx_cov, gamma=gamma, truncate=None)  # Define the covariance
+
 # Second one, measurement error
-#eps = 1e-1*sigma*np.identity(n1)
-#icovar = linalg.inv(covar+eps)  # This computes the inverse covariance
 icovar = linalg.inv(covar)  # This computes the inverse covariance
 
 # Create noise
 mean = np.zeros(n1)
-#noise1 = np.random.multivariate_normal(mean, covar + eps, 1).flatten()
 noise1 = np.random.multivariate_normal(mean, covar, 1).flatten()
-
-# Make noise same length as y_obs and add to y_obs
-#nox = np.arange(0, len(y_obs), el)
-#npc = interpolate.PchipInterpolator(nox, noise1, axis=0, extrapolate=None)
-#noy = np.arange(0, len(y_obs), 1)
-#noiseIP = npc(noy)
-#y_obs = y_obs + noiseIP
 
 # The proposal
 def proposal(x, std):
@@ -154,16 +167,44 @@ def param(x):
     enew = pc(tnew)
     return tnew, enew
 
-def misfit(x_n, x_obs_n):
-    fit = mis.sqmahalanobis(x_n, x_obs_n, icovar)
+def misfit(y_n, y_obs_n):
+    "Check the misfit between z value of the simulation and z value of topo_obs"
+    fit = mis.sqmahalanobis(y_n, y_obs_n, icovar)
     return fit
 
+# def align(x, y):
+#     "Cut the simulated array to plot only the area of interest and compare with topo_obs"
+#     index_min = np.argmax(y >= y_obs_min)
+#     x_start = x[index_min]
+#
+#     ipmod = interp1d(x, y)  # interpolate y as a function of x
+#     x_n = np.arange(x_start, x_start + ipmin+ipmax, ipstep)
+#     y_n = ipmod(x_n)
+#     x_n = x_n - x_n[0]
+#     return y_n, x_n
+
+# def align(x, y):
+#     ipmod = interp1d(x, y) # interpolate x as a function of y
+#     x_n = np.arange(ipmin, ipmax, ipstep)
+#     y_n = ipmod(x_n)
+#     x_n = x_n - x_n[0]
+#     return y_n, x_n
+
+
 def align(x, y):
-    ipmod = interp1d(y, x) # interpolate x as a function of y
-    y_n = np.arange(ipmin, ipmax, ipstep)
-    x_n = ipmod(y_n)
+    "Cut the simulated array to plot only the area of interest and compare with topo_obs"
+    y_obs_min = 0
+    index_min = np.argmax(y >= y_obs_min)
+    x_start = x[index_min]
+
+    ipmod = interp1d(x, y)  # interpolate y as a function of x
+    x_n = np.arange(x_start, x_start - ipmin + ipmax, ipstep)
+    y_n = ipmod(x_n)
     x_n = x_n - x_n[0]
-    return y_n, x_n
+    x_p = np.arange(x_start, x_start - ipmin + ipmax, 5)
+    y_p = ipmod(x_p)
+    x_p = x_p - x_p[0]
+    return y_n, x_n, y_p, x_p
 
 def loglike(x):
     t, e = param(x)
@@ -174,11 +215,13 @@ def loglike(x):
     x, y, dz, xmin, xmax, ymin, ymax, x_ini, y_ini, dt_final = \
         main.reef(t, e, tmax, u0, slopi, v0, zb, dx_reef, dt0, xmin, xmax,
                       ymin, ymax)
-    y_n, x_n = align(x, y)
-    fit = misfit(x_n, x_obs_n)
+    y_n, x_n, y_p, x_p = align(x, y)
+    fit = misfit(y_n, y_obs_n)
     predictions = {}
     predictions["x_n"] = x_n
     predictions["y_n"] = y_n
+    predictions["x_p"] = x_p
+    predictions["y_p"] = y_p
     predictions["t"] = t
     predictions["e"] = e
     return -0.5 * fit, predictions
@@ -210,66 +253,66 @@ print(chain.duration)
 # Some trace plots
 fig=plt.figure()
 plt.plot(chain.stats["loglikelihood"][1:])
-plt.savefig("Figs/Fig2a/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["prop_S"][1:])
-plt.savefig("Figs/Fig2a/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["accept_ratio"][1:])
-plt.savefig("Figs/Fig2a/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["parameter_accept_ratio"][1:])
-plt.savefig("Figs/Fig2a/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 # Profile plot
 best = np.argmax(chain.stats["loglikelihood"][stp:])
-x_n = chain.posterior_predictive["x_n"][0, stp:, :]
-y_n = chain.posterior_predictive["y_n"][0, 0, :]
-fig, fig2 = Fig2a.profile(x_n, y_n, x_obs_n, y_obs_n, best)
+x = chain.posterior_predictive["x_p"][0, 0, :]
+y = chain.posterior_predictive["y_p"][0, :, :]
+fig2 = FigS2.profile(x, y, x_obs, y_obs, best)
 
-mean = np.mean(x_n, axis=0)
-median = np.percentile(x_n[:, :], 50, axis=0)
-best_prof = x_n[best, :]
-np.savetxt("Figs/Fig2a/MeanProfile.txt", mean)
-np.savetxt("Figs/Fig2a/MedianProfile.txt", median)
-np.savetxt("Figs/Fig2a/BestProfile.txt", best_prof)
+mean = np.mean(y, axis=0)
+median = np.percentile(y[:, :], 50, axis=0)
+best_prof = y[best, :]
+np.savetxt("Figs/FigS2/MeanProfile.txt", mean)
+np.savetxt("Figs/FigS2/MedianProfile.txt", median)
+np.savetxt("Figs/FigS2/BestProfile.txt", best_prof)
 
 all_loglikes = chain.stats["loglikelihood"][stp:, :]
 best_loglike = all_loglikes[best, :]
-np.savetxt("Figs/Fig2a/BestLogLike.txt", best_loglike)
+np.savetxt("Figs/FigS2/BestLogLike.txt", best_loglike)
 
 # Sea-level plot
 xsl = np.arange(0, tstart, 1)
 ysl = chain.posterior_predictive["e"][0, :, :][stp:]
-fig, fig2 = Fig2a.sealevel(xsl, ysl, best)
+fig, fig2 = FigS2.sealevel(xsl, ysl, best)
 
 mean = np.mean(ysl, axis=0)
 median = np.percentile(ysl[:, :], 50, axis=0)
 best_sl = ysl[best, :]
-np.savetxt("Figs/Fig2a/MeanSL.txt", mean)
-np.savetxt("Figs/Fig2a/MedianSL.txt", median)
-np.savetxt("Figs/Fig2a/BestSL.txt", best_sl)
+np.savetxt("Figs/FigS2/MeanSL.txt", mean)
+np.savetxt("Figs/FigS2/MedianSL.txt", median)
+np.savetxt("Figs/FigS2/BestSL.txt", best_sl)
 
 # Box 1.1
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 0][stp:],
                     "SL Elevation (m)" : chain.samples[:, 1][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/Fig2a/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.2
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 2][stp:],
                     "SL Elevation (m)" : chain.samples[:, 3][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/Fig2a/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.3
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 4][stp:],
                     "SL Elevation (m)" : chain.samples[:, 5][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/Fig2a/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
 
 # Parameter path 1
 fig=plt.figure()
@@ -278,7 +321,7 @@ plt.xlabel('Age (ka)')
 plt.ylabel('SL Elevation (m)')
 plt.xlim([33, 53])
 plt.ylim([-140, 0])
-plt.savefig("Figs/Fig2a/Path1.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Path1.pdf", format="pdf", bbox_inches="tight")
 
 # Parameter path 2
 fig=plt.figure()
@@ -287,7 +330,7 @@ plt.xlabel('Age (ka)')
 plt.ylabel('SL Elevation (m)')
 plt.xlim([12, 32])
 plt.ylim([-140, 0])
-plt.savefig("Figs/Fig2a/Path2.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Path2.pdf", format="pdf", bbox_inches="tight")
 
 # Parameter path 3
 fig=plt.figure()
@@ -296,6 +339,6 @@ plt.xlabel('Age (ka)')
 plt.ylabel('SL Elevation (m)')
 plt.xlim([54, 74])
 plt.ylim([-140, 0])
-plt.savefig("Figs/Fig2a/Path3.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("Figs/FigS2/Path3.pdf", format="pdf", bbox_inches="tight")
 
 plt.show()
