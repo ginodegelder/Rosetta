@@ -1,5 +1,5 @@
 =============
-Rosetta
+RoSETTA
 =============
 -----------------------------------------------
 Reconstruction Of Sea-level, Ecosystems and Tectonics from Terrace Analysis
