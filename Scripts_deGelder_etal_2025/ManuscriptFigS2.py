@@ -253,19 +253,19 @@ print(chain.duration)
 # Some trace plots
 fig=plt.figure()
 plt.plot(chain.stats["loglikelihood"][1:])
-plt.savefig("Figs/FigS2/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["prop_S"][1:])
-plt.savefig("Figs/FigS2/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["accept_ratio"][1:])
-plt.savefig("Figs/FigS2/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["parameter_accept_ratio"][1:])
-plt.savefig("Figs/FigS2/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 # Profile plot
 best = np.argmax(chain.stats["loglikelihood"][stp:])
@@ -276,13 +276,13 @@ fig2 = FigS2.profile(x, y, x_obs, y_obs, best)
 mean = np.mean(y, axis=0)
 median = np.percentile(y[:, :], 50, axis=0)
 best_prof = y[best, :]
-np.savetxt("Figs/FigS2/MeanProfile.txt", mean)
-np.savetxt("Figs/FigS2/MedianProfile.txt", median)
-np.savetxt("Figs/FigS2/BestProfile.txt", best_prof)
+np.savetxt("../Figs/FigS2/MeanProfile.txt", mean)
+np.savetxt("../Figs/FigS2/MedianProfile.txt", median)
+np.savetxt("../Figs/FigS2/BestProfile.txt", best_prof)
 
 all_loglikes = chain.stats["loglikelihood"][stp:, :]
 best_loglike = all_loglikes[best, :]
-np.savetxt("Figs/FigS2/BestLogLike.txt", best_loglike)
+np.savetxt("../Figs/FigS2/BestLogLike.txt", best_loglike)
 
 # Sea-level plot
 xsl = np.arange(0, tstart, 1)
@@ -292,27 +292,27 @@ fig, fig2 = FigS2.sealevel(xsl, ysl, best)
 mean = np.mean(ysl, axis=0)
 median = np.percentile(ysl[:, :], 50, axis=0)
 best_sl = ysl[best, :]
-np.savetxt("Figs/FigS2/MeanSL.txt", mean)
-np.savetxt("Figs/FigS2/MedianSL.txt", median)
-np.savetxt("Figs/FigS2/BestSL.txt", best_sl)
+np.savetxt("../Figs/FigS2/MeanSL.txt", mean)
+np.savetxt("../Figs/FigS2/MedianSL.txt", median)
+np.savetxt("../Figs/FigS2/BestSL.txt", best_sl)
 
 # Box 1.1
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 0][stp:],
                     "SL Elevation (m)" : chain.samples[:, 1][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS2/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.2
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 2][stp:],
                     "SL Elevation (m)" : chain.samples[:, 3][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS2/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1.3
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 4][stp:],
                     "SL Elevation (m)" : chain.samples[:, 5][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-plt.savefig("Figs/FigS2/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
 
 # Parameter path 1
 fig=plt.figure()
@@ -321,7 +321,7 @@ plt.xlabel('Age (ka)')
 plt.ylabel('SL Elevation (m)')
 plt.xlim([33, 53])
 plt.ylim([-140, 0])
-plt.savefig("Figs/FigS2/Path1.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Path1.pdf", format="pdf", bbox_inches="tight")
 
 # Parameter path 2
 fig=plt.figure()
@@ -330,7 +330,7 @@ plt.xlabel('Age (ka)')
 plt.ylabel('SL Elevation (m)')
 plt.xlim([12, 32])
 plt.ylim([-140, 0])
-plt.savefig("Figs/FigS2/Path2.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Path2.pdf", format="pdf", bbox_inches="tight")
 
 # Parameter path 3
 fig=plt.figure()
@@ -339,6 +339,6 @@ plt.xlabel('Age (ka)')
 plt.ylabel('SL Elevation (m)')
 plt.xlim([54, 74])
 plt.ylim([-140, 0])
-plt.savefig("Figs/FigS2/Path3.pdf", format="pdf", bbox_inches="tight")
+plt.savefig("../Figs/FigS2/Path3.pdf", format="pdf", bbox_inches="tight")
 
 plt.show()

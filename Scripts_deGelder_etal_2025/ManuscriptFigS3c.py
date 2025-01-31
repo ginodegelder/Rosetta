@@ -298,149 +298,149 @@ print(chain.duration)
 # Some trace plots
 fig=plt.figure()
 plt.plot(chain.stats["loglikelihood"])
-# fig.savefig('Figs/Stats-Loglikelihood.png')
-fig.savefig("Figs/FigS3c/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Stats-Loglikelihood.png')
+fig.savefig("../Figs/FigS3c/Stats-Loglikelihood.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["prop_S"][1:])
-# fig.savefig('Figs/Stats-prop_S.png')
-fig.savefig("Figs/FigS3c/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Stats-prop_S.png')
+fig.savefig("../Figs/FigS3c/Stats-prop_S.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["accept_ratio"][1:])
-# fig.savefig('Figs/Stats-accept_ratio.png')
-fig.savefig("Figs/FigS3c/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Stats-accept_ratio.png')
+fig.savefig("../Figs/FigS3c/Stats-accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 fig=plt.figure()
 plt.plot(chain.stats["parameter_accept_ratio"][1:])
-# fig.savefig('Figs/Stats-parameter_accept_ratio.png')
-fig.savefig("Figs/FigS3c/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Stats-parameter_accept_ratio.png')
+fig.savefig("../Figs/FigS3c/Stats-parameter_accept_ratio.pdf", format="pdf", bbox_inches="tight")
 
 # Box 1
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 0][stp:],
                     "SL Elevation (m)" : chain.samples[:, 1][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
-# fig.savefig('Figs/Histogram-2D-1.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-1.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 2][stp:],
                     "SL Elevation (m)" : chain.samples[:, 3][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
-# fig.savefig('Figs/Histogram-2D-2.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-2.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 3
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 4][stp:],
                     "SL Elevation (m)" : chain.samples[:, 5][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
-# fig.savefig('Figs/Histogram-2D-3.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-3.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-3.pdf", format="pdf", bbox_inches="tight")
 
 # Box 4
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 6][stp:],
                     "SL Elevation (m)" : chain.samples[:, 7][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
-# fig.savefig('Figs/Histogram-2D-4.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-4.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-4.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-4.pdf", format="pdf", bbox_inches="tight")
 
 # Box 5
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 8][stp:],
                     "SL Elevation (m)" : chain.samples[:, 9][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
                     #marginal_kws=dict(bins=25)
-# fig.savefig('Figs/Histogram-2D-5.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-5.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-5.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-5.pdf", format="pdf", bbox_inches="tight")
 
 # Box 6
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 10][stp:],
                     "SL Elevation (m)" : chain.samples[:, 11][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-# fig.savefig('Figs/Histogram-2D-6.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-6.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-6.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-6.pdf", format="pdf", bbox_inches="tight")
 
 # Box 7
 df = pd.DataFrame({"Age (ka)" : chain.samples[:, 12][stp:],
                     "SL Elevation (m)" : chain.samples[:, 13][stp:]})
 fig = sns.jointplot(data=df, x="Age (ka)", y="SL Elevation (m)", kind="hex", palette="colorblind")
-# fig.savefig('Figs/Histogram-2D-7.png')
-fig.savefig("Figs/FigS3c/Histogram-2D-7.pdf", format="pdf", bbox_inches="tight")
+# fig.savefig('../Figs/Histogram-2D-7.png')
+fig.savefig("../Figs/FigS3c/Histogram-2D-7.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.1
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 14][stp:],
                     "Initial slope (%)" : chain.samples[:, 16][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Initial slope (%)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-ER-IS_1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-ER-IS_1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.2
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 14][stp:],
                     "Wave base depth (m)" : chain.samples[:, 18][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Wave base depth (m)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-ER-WB_1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-ER-WB_1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.3
 df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 16][stp:],
                     "Wave base depth (m)" : chain.samples[:, 18][stp:]})
 fig = sns.jointplot(data=df, x="Initial slope (%)", y="Wave base depth (m)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-IS-WB_1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-IS-WB_1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.4
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 14][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 20][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-ER-UR_1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-ER-UR_1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.5
 df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 16][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 20][stp:]})
 fig = sns.jointplot(data=df, x="Initial slope (%)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-IS-UR_1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-IS-UR_1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.6
 df = pd.DataFrame({"Wave base depth (m)" : chain.samples[:, 18][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 20][stp:]})
 fig = sns.jointplot(data=df, x="Wave base depth (m)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-WB-UR_1.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-WB-UR_1.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.7
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 15][stp:],
                     "Initial slope (%)" : chain.samples[:, 17][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Initial slope (%)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-ER-IS_2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-ER-IS_2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.8
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 15][stp:],
                     "Wave base depth (m)" : chain.samples[:, 19][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Wave base depth (m)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-ER-WB_2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-ER-WB_2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.9
 df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 17][stp:],
                     "Wave base depth (m)" : chain.samples[:, 19][stp:]})
 fig = sns.jointplot(data=df, x="Initial slope (%)", y="Wave base depth (m)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-IS-WB_2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-IS-WB_2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.10
 df = pd.DataFrame({"Erosion rate (mm/yr)" : chain.samples[:, 15][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 21][stp:]})
 fig = sns.jointplot(data=df, x="Erosion rate (mm/yr)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-ER-UR_2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-ER-UR_2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.11
 df = pd.DataFrame({"Initial slope (%)" : chain.samples[:, 17][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 21][stp:]})
 fig = sns.jointplot(data=df, x="Initial slope (%)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-IS-UR_2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-IS-UR_2.pdf", format="pdf", bbox_inches="tight")
 
 # Box 2.12
 df = pd.DataFrame({"Wave base depth (m)" : chain.samples[:, 19][stp:],
                     "Uplift Rate (mm/yr)" : chain.samples[:, 21][stp:]})
 fig = sns.jointplot(data=df, x="Wave base depth (m)", y="Uplift Rate (mm/yr)", kind="hex", palette="colorblind")
-fig.savefig("Figs/FigS3c/Histogram-2D-WB-UR_2.pdf", format="pdf", bbox_inches="tight")
+fig.savefig("../Figs/FigS3c/Histogram-2D-WB-UR_2.pdf", format="pdf", bbox_inches="tight")
 
 # # Profile plot
 best = np.argmax(chain.stats["loglikelihood"][stp:])
