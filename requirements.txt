@@ -1,0 +1,10 @@
+numpy==1.26.4
+matplotlib==3.8.2
+dask==2024.1.1
+distributed==2024.1.1
+cmcrameri==1.8
+xarray==2024.1.1
+xarray-simlab==0.5.0
+scipy==1.12.0
+seaborn==0.13.2
+numba==0.59.0
