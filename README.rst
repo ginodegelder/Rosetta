@@ -46,7 +46,7 @@ You are now in your python3.11 virtual environment where you can install the nee
 
 Now, git clone this repository::
 
-	git clone https://github.com/YBoucharat/Rosetta
+	git clone https://github.com/ginodegelder/Rosetta
 
 This will clone the whole repository, to extract this version, run::
 
