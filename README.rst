@@ -40,7 +40,7 @@ If you want to run the model on a cluster/HPC, you might need to create a virtua
 Creating a python virtual environment named 'virtualenv' in 'home' directory::
 
         cd ~/
-	python3.11 -m venv virtualenv
+	python3 -m venv virtualenv
 
 Activation::
 
@@ -50,7 +50,7 @@ You are now in your python3.11 virtual environment where you can install the nee
 
 Now, git clone this repository::
 
-	git clone https://github.com/YBoucharat/Rosetta
+	git clone https://github.com/ginodegelder/Rosetta
 
 To install the needed libraries::
 
