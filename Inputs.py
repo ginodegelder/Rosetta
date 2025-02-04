@@ -27,13 +27,10 @@ sea_level = {
     # The older value has to be fixed 
     # Time in ky, elevation in meters
     
-    0 : [None, None, None, 0, None, None, None],
-    6 : [ 5, 7, 0.3, 2, 1, 3.5, 0.3],
+    0 : [None, None, None, 0, None, None, None], # Actual fixed SL node
+    6 : [ 5, 7, 0.3, 2, 1, 3.5, 0.3], # First free SL node
     8.5 : [ 7.5, 9, 0.3, -5, -10, -1, 0.5],
-    11 : [9.75, 11.75, 0.3, -25, -30, -20, 0.5],
-    13.5 : [12.5, 14.5, 0.3, -50, -52.5, -37.5, 0.5],
-    15 : [None, None, None, -70, None, None, None],
-    16 : [None, None, None, -79, None, None, None],
+    16 : [None, None, None, -79, None, None, None], # Last fixed SL node
 }
 
 
@@ -74,10 +71,10 @@ construction_params = {
         'construct__hmax': [20, None, None, None],
         # Water height for open ocean
         'hfactor__how': [2, None, None, None],
-        # Elevation of antecedent terrace
-        'init__zterr': [-25, -35, -20, 1],
         # Length of antecedent terrace. Set to 0 to remove platform
         'init__lterr': [0, None, None, None],
+        # Elevation of antecedent terrace
+        'init__zterr': [-25, None, None, None],
         # Terrace's slope
         'init__sloplat': [0.e-2, None, None, None],
         # Sinus noise wavelength
