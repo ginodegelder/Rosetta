@@ -30,8 +30,10 @@ STATS = {
 }
 
 RESTART = inversion_params['restart']
-R_HAT = inversion_params['R-hat']
-n_chains = inversion_params['n_chains']
+# For now, R_HAT = 1.1, multi chain in dev
+R_HAT = 1.1
+# For now, N_CHAINS = 1, multi chain in dev
+n_chains = 1
 # Number of processors used in a single chain
 proc_in_chain = nb_proc // n_chains
 # Arrays with ranks of main cores. One main per chain.

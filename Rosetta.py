@@ -56,11 +56,13 @@ N_SAMPLES = inversion_params['n_samples']
 N_TUNE = inversion_params['n_tune']
 TUNE_INTERVAL = inversion_params['tune_interval']
 STP = inversion_params['stp']
-DX_REEF = inversion_params['dx_reef']
 SIGMA = inversion_params['sigma']
 CORR_L = inversion_params['corr_l']
 IPSTEP = inversion_params['ipstep']
-N_CHAINS = inversion_params['n_chains']
+# For now, N_CHAINS = 1, multi chain in dev
+N_CHAINS = 1
+# Fixed dx for forward model, in dev for efficiency
+DX_REEF = 1
 
 
 # Check if there will be something to plot.

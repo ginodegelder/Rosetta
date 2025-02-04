@@ -50,12 +50,12 @@ sea_level = {
 # eg : first_subdict --> profileA ; second --> profileB ...
 
 construction_params = {
-    # Timestep for the forward REEF model (years)
+    # Timestep for the forward REEF model (years). Use 100 if possible, do not 
+    # exceed 400.
     "dt" : 400,
     # Format : 'variable_name' : [starting_point, min, max, step_size]
     # For fixed one : 'variable_name' : [starting_point, None, None, None]
-    # Do not change the values if there is 'X' at the beginning of the comment
-    # and do not change the variable name
+    # Do not change the variable name
     # Everything in meters and years
     "reef_params0" : {
         # vertical land motion rate
@@ -66,7 +66,7 @@ construction_params = {
         'eros__hwb': [3, 1, 5, 0.25],
         # Eroded flux (m^3/y)
         'eros__Ev': [80e-3, 20e-3, 500e-3, 20e-3],
-        # Delta...
+        # Coral reef width construction factor
         'hfactor__Dbar': [500, 200, 1800, 25],
         # maximum reef growth rate
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
@@ -76,14 +76,14 @@ construction_params = {
         'hfactor__how': [2, None, None, None],
         # Elevation of antecedent terrace
         'init__zterr': [-25, -35, -20, 1],
-        # Length of antecedent terrace
-        'init__lterr': [10000, None, None, None],
+        # Length of antecedent terrace. Set to 0 to remove platform
+        'init__lterr': [0, None, None, None],
         # Terrace's slope
         'init__sloplat': [0.e-2, None, None, None],
         # Sinus noise wavelength
-        'init__wavelength' : [2500, 500, 4000, 25],
+        'init__wavelength' : [2500, None, None, None],
         # Sinus amplitude
-        'init__amplitude' : [10, 0, 20, 1],
+        'init__amplitude' : [10, None, None, None],
         },
 # =============================================================================
 #   Put here the sub-dicts with only the free parameters for other topo profile
@@ -96,16 +96,10 @@ construction_params = {
         'eros__hwb': [3, 1, 5, 0.25],
         # Eroded flux (m^3/y)
         'eros__Ev': [80e-3, 20e-3, 500e-3, 20e-3],
-        # Delta...
+        # Coral reef width construction factor
         'hfactor__Dbar': [1400, 800, 1800, 25],
         # maximum reef growth rate
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
-        # Elevation of antecedent terrace
-        'init__zterr': [-25, -35, -20, 1],
-        # Sinus noise wavelength
-        'init__wavelength' : [2500, 500, 4000, 25],
-        # Sinus amplitude
-        'init__amplitude' : [10, 0, 20, 1],
         },
     # Another dict
     'reef_params2' : {
@@ -115,16 +109,10 @@ construction_params = {
         'eros__hwb': [3, 1, 5, 0.25],
         # Eroded flux (m^3/y)
         'eros__Ev': [80e-3, 20e-3, 500e-3, 20e-3],
-        # Delta...
+        # Coral reef width construction factor
         'hfactor__Dbar': [180, 100, 1800, 25],
         # maximum reef growth rate
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
-        # Elevation of antecedent terrace
-        'init__zterr': [-25, -35, -20, 1],
-        # Sinus noise wavelength
-        'init__wavelength' : [2500, 500, 4000, 25],
-        # Sinus amplitude
-        'init__amplitude' : [10, 0, 20, 1],
         }
     }
 
@@ -183,10 +171,6 @@ inversion_params = {
     # Restart from a preexistant. 
     # Put the path of the model 'Out' folder or None.
     'restart' : None,
-    # Number of MCMC chains. Stay at 1 for now, in dev.
-    'n_chains' : 1,
-    # Gelman-Rubin criteria for multiple chain. Not implemented.
-    'R-hat' : 1.1,
     # Number of simulations
     'n_samples' : 10, 
     # Tune step size until iteration
@@ -195,8 +179,6 @@ inversion_params = {
     'tune_interval' : 500,
     # Starting point for plotting (inferior to n_samples !)
     'stp' : 0,  
-    # dx for reef inversion, do not change it
-    'dx_reef' : 1,  
     # Amplitude in m, related to uncertainty in cliff height
     'sigma' : 5,  
     # Correlation length (multiple of ipstep), related to uncertainty in terrace width
