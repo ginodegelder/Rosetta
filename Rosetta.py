@@ -43,6 +43,7 @@ from mpi4py import MPI
 import tempfile
 import shutil
 import traceback
+import warnings
 
 # Get rank and number of processors.
 comm = MPI.COMM_WORLD
@@ -55,24 +56,33 @@ N_SAMPLES = inversion_params['n_samples']
 N_TUNE = inversion_params['n_tune']
 TUNE_INTERVAL = inversion_params['tune_interval']
 STP = inversion_params['stp']
-DX_REEF = inversion_params['dx_reef']
 SIGMA = inversion_params['sigma']
 CORR_L = inversion_params['corr_l']
 IPSTEP = inversion_params['ipstep']
-N_CHAINS = inversion_params['n_chains']
+# For now, N_CHAINS = 1, multi chain in dev
+N_CHAINS = 1
+# Fixed dx for forward model, in dev for efficiency
+DX_REEF = 1
 
 
 # Check if there will be something to plot.
 if STP >= N_SAMPLES:
-    raise Warning(
+    warnings.warn(
         "Starting point for plotting >= number of sample. Nothing will be " \
         "plotted if not restarting from a preexistant model.\n" 
         f"stp = {STP}\n"
         f"n_samples = {N_SAMPLES}"
-        )
+        , UserWarning)
 
 # Use construction_params if construction = True, eros_param if False
-if construction:
+if not construction:
+    reef_params = eros_params
+    # Extract dt REEF and remove it
+    DT_REEF = reef_params['dt']
+    reef_params.pop('dt')
+    first_sub_dict = next(iter(reef_params.values()))
+    
+else:
     reef_params = construction_params
     # Extract dt REEF and remove it
     DT_REEF = reef_params['dt']
@@ -90,11 +100,22 @@ if construction:
         first_sub_dict.pop('init__sloplat', None)
         first_sub_dict.pop('init__wavelength', None)
         first_sub_dict.pop('init__amplitude', None)
-else:
-    reef_params = eros_params
-    # Extract dt REEF and remove it
-    DT_REEF = reef_params['dt']
-    reef_params.pop('dt')
+
+# Add fixed parameters for the model
+# Initialize SL filename 
+first_sub_dict['SLstory__RSLin'] = ['SL', None, None, None]
+# Grid vertical size factor
+first_sub_dict['grid__dmax'] = [100, None, None, None]
+# Grid step size
+first_sub_dict['grid__spacing'] = [1, None, None, None]
+# Coefficient for erosion efficiency, sea-bed
+first_sub_dict['eros__beta1'] = [0.1, None, None, None]
+# Coefficient for erosion efficiency, cliff retreat
+first_sub_dict['eros__beta2'] = [1, None, None, None]
+# Height of notch for volume eroded during cliff retreat
+first_sub_dict['eros__hnotch'] = [1, None, None, None]
+# Max repos angle of clastic sediments
+first_sub_dict['depot__repos'] = [15e-2, None, None, None]
 
 
 # Extracts topographic profiles  
@@ -801,7 +822,7 @@ def run_reef(input_vars):
     with DicoModels().models[ds_in.model_name]:
         ds = (ds_in.xsimlab.run())
         
-    #print("simu rank ", rank, " duration : ", dtime.now() - t0)
+    #print("simu rank ", rank)
     
     # Extracts the last topo profile.
     x = ds.x[:].values
@@ -904,6 +925,9 @@ def loglike(x, dict_save_run, dict_save_vars):
     sum_fit = 0 
     predictions = {}
     
+    #print()
+    #print('save_run',dict_save_run)
+    #print()
     if focus_run == 'ALL':
         for key in dict_input_vars.keys():
             num_key = int(''.join(filter(str.isdigit, key)))
@@ -1100,7 +1124,29 @@ if rank == 0:
     
     for other_rank in range(1, nb_proc):
         comm.send(Df_folder_path, dest=other_rank)
-
+    
+    # Save Inputs file in Figs folder.
+    with open(Folder_path + '/AA-Inputs.txt', 'w') as f:
+        f.write("Construction = ")
+        pprint.pprint(construction, stream = f)
+        f.write("\n")
+        
+        f.write("sea_level = \n")
+        pprint.pprint(sea_level, stream = f)
+        f.write("\n")
+    
+        f.write("reef_params = \n")
+        pprint.pprint(reef_params, stream = f)
+        f.write("\n")
+    
+        f.write("inversion_params = \n")
+        pprint.pprint(inversion_params, stream = f)
+        f.write("\n")
+    
+        f.write("topo_obs = \n")
+        pprint.pprint(topo_obs, stream = f)
+        f.write("\n")
+        
 else:
     Df_folder_path = comm.recv(source = 0)
 
@@ -1139,28 +1185,6 @@ if rank == 0:
 #     Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
 #     os.makedirs(Df_folder_path)
 # =============================================================================
-    
-    # Save Inputs file in Figs folder.
-    with open(Folder_path + '/AA-Inputs.txt', 'w') as f:
-        f.write("Construction = ")
-        pprint.pprint(construction, stream = f)
-        f.write("\n")
-        
-        f.write("sea_level = \n")
-        pprint.pprint(sea_level, stream = f)
-        f.write("\n")
-    
-        f.write("reef_params = \n")
-        pprint.pprint(reef_params, stream = f)
-        f.write("\n")
-    
-        f.write("inversion_params = \n")
-        pprint.pprint(inversion_params, stream = f)
-        f.write("\n")
-    
-        f.write("topo_obs = \n")
-        pprint.pprint(topo_obs, stream = f)
-        f.write("\n")
     
     # Some trace plots for statistics.
     # Creates a folder to store stats figures.

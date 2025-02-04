@@ -30,8 +30,10 @@ STATS = {
 }
 
 RESTART = inversion_params['restart']
-R_HAT = inversion_params['R-hat']
-n_chains = inversion_params['n_chains']
+# For now, R_HAT = 1.1, multi chain in dev
+R_HAT = 1.1
+# For now, N_CHAINS = 1, multi chain in dev
+n_chains = 1
 # Number of processors used in a single chain
 proc_in_chain = nb_proc // n_chains
 # Arrays with ranks of main cores. One main per chain.
@@ -189,6 +191,10 @@ class Metropolis1dStep(MCMCBase):
         self._accept_mat = np.zeros((tune_interval, self.n_vars),
                                     dtype=np.bool_)
         self._accept_ratios = np.zeros(self.n_vars)
+        self._init_prop_S = self.prop_S.copy()
+        # Min and max step sizes
+        self._min_prop_S = self._init_prop_S * 0.05
+        self._max_prop_S = self._init_prop_S * 15
 
     def restart_arrays(self, dataset, x0, n, thin, tune, tune_interval,
                           discard_tuning, posterior_predict):
@@ -256,6 +262,10 @@ class Metropolis1dStep(MCMCBase):
         self.n_samples += self.saved_n_samples
         # Update prop_S to saved one. Check for multi chains.
         self.prop_S = dataset.sample_stats.prop_S[0,-1,:]
+        self._init_prop_S = dataset.sample_stats.prop_S[0,0,:]
+        # Min and max step sizes
+        self._min_prop_S = self._init_prop_S * 0.05
+        self._max_prop_S = self._init_prop_S * 15
 
         # Private arrays
         self._current_iter = self.saved_n_samples + 1
@@ -347,6 +357,7 @@ class Metropolis1dStep(MCMCBase):
             elif self._accept_ratios[i] > 0.5:
                 self.prop_S[i] *= 1.1
                 continue
+        self.prop_S = np.clip(self.prop_S, self._min_prop_S, self._max_prop_S)
 
     def run(self, chains, n, Outs_path, tune=0, tune_interval=1000,
             discard_tuned_samples=False, thin=1):
@@ -415,6 +426,15 @@ class Metropolis1dStep(MCMCBase):
             # Keep only the last arrays. Multi : use self.i_chain
             posterior_predict = {key: value['data'][0,-1,:] 
                                  for key, value in postpred_items}
+
+            # Fill in dict_save_run in case of early crash
+            dict_save_run = {
+                    f"rank_{rank}" : {
+                                      "x" : posterior_predict[f"x_{rank}"],
+                                      "y" : posterior_predict[f"y_{rank}"]
+                                      }
+                    }
+
             # Empty the extraction.
             postpred_items = None
             #self._x_loglike, posterior_predict = self.loglikelihood(x)
