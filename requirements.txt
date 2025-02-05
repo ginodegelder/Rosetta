@@ -2,6 +2,7 @@ numpy==1.26.4
 matplotlib==3.8.2
 dask==2024.1.1
 distributed==2024.1.1
+zarr==2.18.3 
 cmcrameri==1.8
 xarray==2024.1.1
 xarray-simlab==0.5.0
