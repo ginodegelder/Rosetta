@@ -1177,7 +1177,7 @@ if rank == 0:
     Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
                  str(IPSTEP) + '_' + time_output)
     # Creates a path with Folder_name.
-    Folder_path = os.path.join(os.getcwd(), 'Outs/FigS4d/' + Folder_name)
+    Folder_path = os.path.join(os.getcwd(), 'Outs/' + Folder_name)
     # Creates the directory for the Outs.
     os.makedirs(Folder_path)
 
@@ -1240,7 +1240,7 @@ if rank == 0:
 #     Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
 #                  str(IPSTEP) + '_' + time_output)
 #     # Creates a path with Folder_name.
-#     Folder_path = os.path.join(os.getcwd(), 'Outs/FigS4d/' + Folder_name)
+#     Folder_path = os.path.join(os.getcwd(), 'Outs/' + Folder_name)
 #     # Creates the directory for the Outs.
 #     os.makedirs(Folder_path)
 # 

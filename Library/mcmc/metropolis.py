@@ -394,7 +394,7 @@ class Metropolis1dStep(MCMCBase):
         if type(RESTART) == str:
             if rank == 0:
                 dataset = arviz.from_netcdf(
-                    './Outs/FigS4d/'+RESTART+"/Dataframes/MCMC_raw.nc"
+                    './Outs/'+RESTART+"/Dataframes/MCMC_raw.nc"
                     )
                     
                 for other_rank in range(1, nb_proc):
