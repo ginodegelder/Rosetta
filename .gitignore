@@ -1,0 +1,5 @@
+./Outs
+OAR*
+__pycache__
+bash_Rosetta.sh
+./Library/RSLcurves/*

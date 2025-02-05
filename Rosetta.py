@@ -165,18 +165,39 @@ num_key = 0
 for filename in name_files: 
     # Extracts x and y in the topo files
     x_obs, y_obs = tools.readfile(topo_obs['topo_path']+'/'+filename)
-    # Min and max values
-    IPMIN = min(x_obs)  # Min x value from observed topo
-    IPMAX = max(x_obs)  # Max x value from observed topo
+
+    # Min and max values extractions
+    
+    # If erosive only, calculate misfit on horizontal axis
+    if not Construction:
+        IPMIN = min(y_obs)  # Min y value from observed topo
+        IPMAX = max(y_obs)  # Max y value from observed topo
+        # Vertical interpolation, as the misfit will be calculated on x axis.
+        # Interpolation of x_obs as a function of y_obs.
+        ipobs = interp1d(y_obs, x_obs)  
+        # Create an array from y min to y max with the step defined in "Inputs".
+        y_obs_n = np.arange(IPMIN, IPMAX, IPSTEP) 
+        # Interpolate x_obs to fit y_obs_n dimension.
+        x_obs_n = ipobs(y_obs_n) 
+        # Remove offset to start x axis at 0
+        x_obs_n = x_obs_n - x_obs_n[0]
+    
+    # If construction, calculate misfit on vertical axis
+    else:
+        IPMIN = min(x_obs)  # Min x value from observed topo
+        IPMAX = max(x_obs)  # Max x value from observed topo
+        # Horizontal interpolation, as the misfit will be calculated on y axis.
+        # Interpolation of y_obs as a function of x_obs.
+        ipobs = interp1d(x_obs, y_obs)  
+        # Create an array from x min to x max with the step defined in "Inputs".
+        x_obs_n = np.arange(IPMIN, IPMAX, IPSTEP) 
+        # Interpolate y_obs to fit x_obs_n dimension.
+        y_obs_n = ipobs(x_obs_n) 
+        
+    # Y_OBS_MIN and MAX are used only if Construction==True
     Y_OBS_MIN = min(y_obs)  # Min y value from observed topo
     Y_OBS_MAX = max(y_obs)  # Max y value from observed topo
-    # Horizontal interpolation, as the misfit will be calculated on y axis.
-    # Interpolation of y_obs as a function of x_obs.
-    ipobs = interp1d(x_obs, y_obs)  
-    # Create an array from x min to x max with the step defined in "Inputs".
-    x_obs_n = np.arange(IPMIN, IPMAX, IPSTEP) 
-    # Interpolate y_obs to fit x_obs_n dimension.
-    y_obs_n = ipobs(x_obs_n) 
+    
     # Puts values in the dictionnary 
     dict_topo_obs[f"topo_obs_{num_key}"] = {
         f"x_obs_{num_key}" : x_obs_n,
@@ -680,17 +701,17 @@ def param(x, dict_save_vars):
     return dict_input_vars, dict_save_vars, tnew, enew, focus_run
 
 
-def misfit(y_n, y_obs_n, icovar_i):
+def misfit(axis_n, axis_obs_n, icovar_i):
     """
     Computes the misfit on y axis between the constructed (y_n) and the 
     observed (y_obs_n) topography.
 
     Parameters
     ----------
-    y_n : 1D array
-        Modeled elevations.
-    y_obs_n : 1D array
-        Observed elevations.
+    axis_n : 1D array
+        Modeled elevations/distances depending on Construction==True/False.
+    axis_obs_n : 1D array
+        Observed elevations/distances depending on Construction==True/False.
     icovar_i : 2D numpy array
         Inverse covariance.
 
@@ -700,7 +721,7 @@ def misfit(y_n, y_obs_n, icovar_i):
         Squared Mahalanobis distance misfit.
 
     """
-    fit = mis.sqmahalanobis(y_n, y_obs_n, icovar_i)
+    fit = mis.sqmahalanobis(axis_n, axis_obs_n, icovar_i)
     
     return fit
 
@@ -724,9 +745,11 @@ def align(x, y, ipmin_i, ipmax_i, y_obs_min):
     y : 1D array
         Vertical values of the simulation.
     IPMIN : float
-        Minimum x value from the observed topography.
+        Minimum x/y value from the observed topography, 
+        depending on Construction==True/False
     IPMAX : float
-        Maximum x value from the observed topography.
+        Maximum x/y value from the observed topography, 
+        depending on Construction==True/False
     y_obs_min : float
         Minimum y value from the observed topography.
 
@@ -739,17 +762,29 @@ def align(x, y, ipmin_i, ipmax_i, y_obs_min):
     
 
     """
-    # Extract the index in y of the first element >= to the min value in y_obs.
-    index_min = np.argmax(y >= y_obs_min) 
-    # Use this index for the x starting value.
-    x_start = x[index_min]
-    
-    ipmod = interp1d(x, y) # Interpolate y as a function of x.
-    # Generate new continuous x values from x_start to max x value in topo_obs.
-    # with the step defined in Inputs.inversion_params.
-    x_n = np.arange(x_start, x_start - ipmin_i + ipmax_i, IPSTEP)
-    y_n = ipmod(x_n) # Interpolation of the vertical values on new x_n axis.
-    x_n = x_n - x_n[0] # Remove the offset to have x axis starting at 0.
+
+    if not Construction:
+        # Interpolate x as a function of y.
+        ipmod = interp1d(y, x)
+        # Generate new continuous y values from bottom to top of the observed 
+        # profile
+        y_n = np.arange(ipmin_i, ipmax_i, IPSTEP)
+        # Interpolation of the horizontal values on new y_n axis.
+        x_n = ipmod(y_n)
+        # Remove offset to start x axis at 0.
+        x_n = x_n - x_n[0]
+
+    else:
+        # Extract the index in y of the first element >= to the min value in y_obs.
+        index_min = np.argmax(y >= y_obs_min) 
+        # Use this index for the x starting value.
+        x_start = x[index_min]
+        ipmod = interp1d(x, y) # Interpolate y as a function of x.
+        # Generate new continuous x values from x_start to max x value in topo_obs.
+        # with the step defined in Inputs.inversion_params.
+        x_n = np.arange(x_start, x_start - ipmin_i + ipmax_i, IPSTEP)
+        y_n = ipmod(x_n) # Interpolation of the vertical values on new x_n axis.
+        x_n = x_n - x_n[0] # Remove the offset to have x axis starting at 0.
     
     return x_n, y_n
 
@@ -969,11 +1004,20 @@ def loglike(x, dict_save_run, dict_save_vars):
                 # Extracts the inverse covariance matrix.
                 icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
                    [f"icovar_{num_key}"]
-                # Extracts the observed elevation.
-                y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"y_obs_{num_key}"]
-                # Computes the misfit.
-                fit = misfit(y_n, y_obs_n, icovar_i)
+                
+                if not Construction:
+                    # Extract observed x
+                    x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
+                        [f"x_obs_{num_key}"]
+                    # Computes the misfit.
+                    fit = misfit(x_n, x_obs_n, icovar_i)
+
+                else:
+                    # Extracts the observed elevation.
+                    y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
+                        [f"y_obs_{num_key}"]
+                    # Computes the misfit.
+                    fit = misfit(y_n, y_obs_n, icovar_i)
         
     elif type(focus_run) == int:
         for key in dict_input_vars.keys():
@@ -1015,11 +1059,20 @@ def loglike(x, dict_save_run, dict_save_vars):
                 # Extracts the inverse covariance matrix.
                 icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
                    [f"icovar_{num_key}"]
-                # Extracts the observed elevation.
-                y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"y_obs_{num_key}"]
-                # Computes the misfit.
-                fit = misfit(y_n, y_obs_n, icovar_i)
+                
+                if not Construction:
+                    # Extract observed x
+                    x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
+                        [f"x_obs_{num_key}"]
+                    # Computes the misfit.
+                    fit = misfit(x_n, x_obs_n, icovar_i)
+
+                else:
+                    # Extracts the observed elevation.
+                    y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
+                        [f"y_obs_{num_key}"]
+                    # Computes the misfit.
+                    fit = misfit(y_n, y_obs_n, icovar_i)
             
             else:                
                 # Selects the core.
@@ -1053,11 +1106,19 @@ def loglike(x, dict_save_run, dict_save_vars):
                     # Extracts the inverse covariance matrix.
                     icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
                        [f"icovar_{num_key}"]
-                    # Extracts the observed elevation.
-                    y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"y_obs_{num_key}"]
-                    # Computes the misfit.
-                    fit = misfit(y_n, y_obs_n, icovar_i)                    
+                    if not Construction:
+                        # Extract observed x
+                        x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
+                            [f"x_obs_{num_key}"]
+                        # Computes the misfit.
+                        fit = misfit(x_n, x_obs_n, icovar_i)
+
+                    else:
+                        # Extracts the observed elevation.
+                        y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
+                            [f"y_obs_{num_key}"]
+                        # Computes the misfit.
+                        fit = misfit(y_n, y_obs_n, icovar_i)                  
     
     # Collects all run saves. Allgather argument concatenates values in a list.
     list_dict_save_run = comm.allgather(dict_save_run)
