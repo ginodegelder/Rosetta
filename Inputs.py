@@ -13,7 +13,7 @@ Created on Fri Jun 16 14:38:23 2023
 # will be only erosive. Two sets of parameters are disponible for those two 
 # types of model.
 
-construction = False
+construction = True
 
 # =============================================================================
 # Create your SL curve 
@@ -181,7 +181,7 @@ inversion_params = {
     # Correlation length (multiple of ipstep), related to uncertainty in terrace width
     'corr_l' : 3, 
     # Every ipstep on x axis, check dz : difference btw simu and observation
-    'ipstep' : 1,  
+    'ipstep' : 100,  
     }
 
 
