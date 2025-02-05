@@ -13,7 +13,7 @@ Created on Fri Jun 16 14:38:23 2023
 # will be only erosive. Two sets of parameters are disponible for those two 
 # types of model.
 
-construction = True
+construction = False
 
 # =============================================================================
 # Create your SL curve 
@@ -124,7 +124,7 @@ construction_params = {
 
 eros_params = {
     # Timestep for the forward REEF model (years)
-    "dt" : 400,
+    "dt" : 100,
     # Format : 'variable_name' : [starting_point, min, max, step_size]
     # For fixed one : 'variable_name' : [starting_point, None, None, None]
     # Do not change the values if there is 'X' at the beginning of the comment
@@ -181,7 +181,7 @@ inversion_params = {
     # Correlation length (multiple of ipstep), related to uncertainty in terrace width
     'corr_l' : 3, 
     # Every ipstep on x axis, check dz : difference btw simu and observation
-    'ipstep' : 100,  
+    'ipstep' : 1,  
     }
 
 

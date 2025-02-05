@@ -100,6 +100,9 @@ else:
         first_sub_dict.pop('init__sloplat', None)
         first_sub_dict.pop('init__wavelength', None)
         first_sub_dict.pop('init__amplitude', None)
+    # Add fixed clastic repos parameter (used only if construct)
+    # Max repos angle of clastic sediments
+    first_sub_dict['depot__repos'] = [15e-2, None, None, None]
 
 # Add fixed parameters for the model
 # Initialize SL filename 
@@ -114,8 +117,7 @@ first_sub_dict['eros__beta1'] = [0.1, None, None, None]
 first_sub_dict['eros__beta2'] = [1, None, None, None]
 # Height of notch for volume eroded during cliff retreat
 first_sub_dict['eros__hnotch'] = [1, None, None, None]
-# Max repos angle of clastic sediments
-first_sub_dict['depot__repos'] = [15e-2, None, None, None]
+
 
 
 # Extracts topographic profiles  
@@ -169,7 +171,7 @@ for filename in name_files:
     # Min and max values extractions
     
     # If erosive only, calculate misfit on horizontal axis
-    if not Construction:
+    if not construction:
         IPMIN = min(y_obs)  # Min y value from observed topo
         IPMAX = max(y_obs)  # Max y value from observed topo
         # Vertical interpolation, as the misfit will be calculated on x axis.
@@ -194,7 +196,7 @@ for filename in name_files:
         # Interpolate y_obs to fit x_obs_n dimension.
         y_obs_n = ipobs(x_obs_n) 
         
-    # Y_OBS_MIN and MAX are used only if Construction==True
+    # Y_OBS_MIN and MAX are used only if construction==True
     Y_OBS_MIN = min(y_obs)  # Min y value from observed topo
     Y_OBS_MAX = max(y_obs)  # Max y value from observed topo
     
@@ -709,9 +711,9 @@ def misfit(axis_n, axis_obs_n, icovar_i):
     Parameters
     ----------
     axis_n : 1D array
-        Modeled elevations/distances depending on Construction==True/False.
+        Modeled elevations/distances depending on construction==True/False.
     axis_obs_n : 1D array
-        Observed elevations/distances depending on Construction==True/False.
+        Observed elevations/distances depending on construction==True/False.
     icovar_i : 2D numpy array
         Inverse covariance.
 
@@ -746,10 +748,10 @@ def align(x, y, ipmin_i, ipmax_i, y_obs_min):
         Vertical values of the simulation.
     IPMIN : float
         Minimum x/y value from the observed topography, 
-        depending on Construction==True/False
+        depending on construction==True/False
     IPMAX : float
         Maximum x/y value from the observed topography, 
-        depending on Construction==True/False
+        depending on construction==True/False
     y_obs_min : float
         Minimum y value from the observed topography.
 
@@ -763,7 +765,7 @@ def align(x, y, ipmin_i, ipmax_i, y_obs_min):
 
     """
 
-    if not Construction:
+    if not construction:
         # Interpolate x as a function of y.
         ipmod = interp1d(y, x)
         # Generate new continuous y values from bottom to top of the observed 
@@ -1005,7 +1007,7 @@ def loglike(x, dict_save_run, dict_save_vars):
                 icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
                    [f"icovar_{num_key}"]
                 
-                if not Construction:
+                if not construction:
                     # Extract observed x
                     x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
                         [f"x_obs_{num_key}"]
@@ -1060,7 +1062,7 @@ def loglike(x, dict_save_run, dict_save_vars):
                 icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
                    [f"icovar_{num_key}"]
                 
-                if not Construction:
+                if not construction:
                     # Extract observed x
                     x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
                         [f"x_obs_{num_key}"]
@@ -1106,7 +1108,7 @@ def loglike(x, dict_save_run, dict_save_vars):
                     # Extracts the inverse covariance matrix.
                     icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
                        [f"icovar_{num_key}"]
-                    if not Construction:
+                    if not construction:
                         # Extract observed x
                         x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
                             [f"x_obs_{num_key}"]
@@ -1286,14 +1288,24 @@ if rank == 0:
         Sub_folder_path = os.path.join(os.getcwd(), Folder_path + 
                                        '/' + Sub_folder_name)
         os.makedirs(Sub_folder_path)
-        x_n = chain.posterior_predictive[f"x_{i}"][0, 0, :]
-        y_n = chain.posterior_predictive[f"y_{i}"][0, STP:, :]
         x_obs = dict_topo_obs[f"topo_obs_{i}"][f"x_obs_{i}"]
         y_obs = dict_topo_obs[f"topo_obs_{i}"][f"y_obs_{i}"]
-        fig, fig2 = Plot_FigS4d.profile_y(
-            x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
-            )
-        plt.close()
+
+        if not construction:
+            x_n = chain.posterior_predictive[f"x_{i}"][0, STP:, :]
+            y_n = chain.posterior_predictive[f"y_{i}"][0, 0, :]
+            fig, fig2 = Plot_FigS4d.profile_x(
+                x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
+                )
+            plt.close()
+
+        else:
+            x_n = chain.posterior_predictive[f"x_{i}"][0, 0, :]
+            y_n = chain.posterior_predictive[f"y_{i}"][0, STP:, :]
+            fig, fig2 = Plot_FigS4d.profile_y(
+                x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
+                )
+            plt.close()
     
     all_loglikes = chain.stats["loglikelihood"][STP:, :]
     best_loglike = all_loglikes[best, :]
