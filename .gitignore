@@ -1,6 +1,7 @@
 Outs
 OAR*
 __pycache__
+Library/mcmc/__pycache__
 bash_Rosetta.sh
 Library/RSLcurves/*
 .nfs*
