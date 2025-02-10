@@ -36,7 +36,7 @@ At the moment, Rosetta has been tested using Open MPI 4.1.4. To check your versi
 	mpirun --version
 
 Do the same with python, and make sure you are using a python3 version.
-If you want to run the model on a cluster/HPC, you might need to create a virtual environment to install all the libraries needed for the model. You can skip this part if you run the model locally.
+If you want to run the model on a cluster/HPC, you might need to create a virtual environment to install all the libraries needed for the model. If running locally, go directly to the git clone section.
 Creating a python virtual environment named 'virtualenv' in 'home' directory::
 
         cd ~/
