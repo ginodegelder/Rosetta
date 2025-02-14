@@ -44,6 +44,7 @@ import tempfile
 import shutil
 import traceback
 import warnings
+import gc
 
 # Get rank and number of processors.
 comm = MPI.COMM_WORLD
@@ -864,6 +865,9 @@ def run_reef(input_vars):
     # Extracts the last topo profile.
     x = ds.x[:].values
     y = ds.profile__z[:].values
+
+    del ds
+    gc.collect()
     
     return x, y
 
