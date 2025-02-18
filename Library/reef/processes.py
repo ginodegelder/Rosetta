@@ -106,10 +106,13 @@ class UniformGrid1D:
     
     dmax = xs.variable(description="maximum water height for acting processes (hmax or hwb)", attrs={'unit':'m'})
     spacing = xs.variable(description="uniform spacing", static=True, attrs={'unit':'m'}, default = 1)
-    slopi = xs.variable(description="initial slope of the substrate", static=True, attrs={'unit':'%'})    
-
+    slopi = xs.variable(description="initial slope of the substrate", static=True, attrs={'unit':'%'}) 
+    zmin = xs.variable(description="min z value of the profile.", static=True, attrs={'unit':'m'}, default=None)
+    zmax = xs.variable(description="max z value of the profile.", static=True, attrs={'unit':'m'}, default=None)
+    
     length = xs.variable(intent='out', description='Length of profile', attrs={'units':'m'})    
     x = xs.index(dims="x")
+    #zmin = xs.variable(intent='inout', description='Minimum z value of the profile', attrs={'units':'m'})
     
     u = xs.foreign(VerticalDisp, 'u')
  
@@ -117,10 +120,19 @@ class UniformGrid1D:
     def initialize(self, tmax):
         
         # Defines grid length and indices, to be improved...
-        self.length = int((self.dmax + 900 + abs(self.u) * tmax) / self.slopi)+6000
-        if self.slopi > 10e-2:
-            self.length += 1700
+        # If bounds are defined
+        if self.zmin and self.zmax:
+            dz = abs(self.zmax - self.zmin)
+            self.length = dz / self.slopi
+        # If no bounds, automatically generate grid
+        else:
+            self.length = int((self.dmax + 900 + abs(self.u) * tmax) / self.slopi)+6000
+            if self.slopi > 10e-2:
+                self.length += 1700
+
+        # Generate x axis
         self.x = np.arange(0., self.length, self.spacing)
+        
         
 #*********************************************************************
 
@@ -174,6 +186,8 @@ class InitTopo:
     xmax = xs.foreign(ProfileZ, 'xmax', intent='out')
     x = xs.foreign(UniformGrid1D, "x")
     z = xs.foreign(ProfileZ, "z", intent="out")
+    zmin = xs.foreign(UniformGrid1D, "zmin")
+    zmax = xs.foreign(UniformGrid1D, "zmax")
     dmax = xs.foreign(UniformGrid1D, 'dmax')
     slopi = xs.foreign(UniformGrid1D, 'slopi')
     u = xs.foreign(VerticalDisp, 'u')
@@ -184,20 +198,24 @@ class InitTopo:
         # Initialisation of profile boundaries
         self.xmax=self.x[0]
         self.xmin = self.x[-1]
+
+        if self.zmin and self.zmax:
+            self.z = self.slopi * self.x - (abs(self.zmin) + self.dmax+abs(self.u*tmax))
         
         # Initial profile
-        if int(self.u*1e5) > 0:
-            if self.slopi>=10e-2:
-                shift = 750
-            else:
-                shift = 400
-            self.z = self.slopi * self.x - (self.dmax+abs(self.u*tmax)+shift)
         else:
-            if self.slopi>=10e-2:
-                shift = 1000
+            if int(self.u*1e5) > 0:
+               if self.slopi>=10e-2:
+                   shift = 750
+               else:
+                   shift = 400
+               self.z = self.slopi * self.x - (self.dmax+abs(self.u*tmax)+shift)
             else:
-                shift = 500
-            self.z = self.slopi * self.x -(shift+self.dmax)
+               if self.slopi>=10e-2:
+                   shift = 1000
+               else:
+                   shift = 500
+               self.z = self.slopi * self.x -(shift+self.dmax)
 
 #*********************************************************************
 

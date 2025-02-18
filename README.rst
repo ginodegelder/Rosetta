@@ -36,7 +36,7 @@ At the moment, Rosetta has been tested using Open MPI 4.1.4. To check your versi
 	mpirun --version
 
 Do the same with python, and make sure you are using a python3 version.
-If you want to run the model on a cluster/HPC, you might need to create a virtual environment to install all the libraries needed for the model. You can skip this part if you run the model locally.
+If you want to run the model on a cluster/HPC, you might need to create a virtual environment to install all the libraries needed for the model. If running locally, go directly to the git clone section.
 Creating a python virtual environment named 'virtualenv' in 'home' directory::
 
         cd ~/
@@ -124,7 +124,7 @@ The first iteration is approximately 2 to 3 times slower than the next ones, wai
 Outputs :
 ---------
 
-All the outputs are in "Outs/FigS4d/" folder.
+All the outputs are in "Outs/" folder.
 The outputs from one model are stored in a directory named : "Figs_<n_samples>_sig.<sigma>_ip.<ipstep>_<DAY-MONTH-YEAR_HOUR-MIN at the end of the run>".
  - There will be one subfolder for each profile, named by the name of the profile, containing the histogramms for each reef parameters corresponding to the profile, its best, mean and median profile in .txt and the profile figures. 
  - "Dataframes" folder contains all the data saved at the end of the inversion. Data are saved in .pkl format, readable with panda. The file MCMC_raw.nc is the raw output in a netcdf format, readable with the arviz library (python). Arviz should have been downloaded while running the command "pip install -r requirements.txt"
@@ -133,7 +133,7 @@ The outputs from one model are stored in a directory named : "Figs_<n_samples>_s
  - "AA-Inputs" file contains all the Inputs for the model.
  - "BestLogLike" contains the value of the best loglike reached during the inversion.
 
-Example of an output folder in "Outs/FigS4d"
+Example of an output folder in "Outs"
 
 ::
 
