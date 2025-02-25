@@ -71,6 +71,12 @@ construction_params = {
         'construct__hmax': [20, None, None, None],
         # Water height for open ocean
         'hfactor__how': [2, None, None, None],
+        # Forward grid dx
+        'grid__spacing': [1, None, None, None],
+        # Forward grid zmin (set to None if not known)
+        'grid__zmax': [None, None, None, None],
+        # Forward grid zmin (set to None if not known)
+        'grid__zmin': [None, None, None, None],
         # Length of antecedent terrace. Set to 0 to remove platform
         'init__lterr': [0, None, None, None],
         # Elevation of antecedent terrace
