@@ -63,7 +63,7 @@ IPSTEP = inversion_params['ipstep']
 # For now, N_CHAINS = 1, multi chain in dev
 N_CHAINS = 1
 # Fixed dx for forward model, in dev for efficiency
-DX_REEF = 1
+#DX_REEF = 1
 
 
 # Check if there will be something to plot.
@@ -111,7 +111,7 @@ first_sub_dict['SLstory__RSLin'] = ['SL', None, None, None]
 # Grid vertical size factor
 first_sub_dict['grid__dmax'] = [100, None, None, None]
 # Grid step size
-first_sub_dict['grid__spacing'] = [1, None, None, None]
+#first_sub_dict['grid__spacing'] = [1, None, None, None]
 # Coefficient for erosion efficiency, sea-bed
 first_sub_dict['eros__beta1'] = [0.1, None, None, None]
 # Coefficient for erosion efficiency, cliff retreat
@@ -119,6 +119,7 @@ first_sub_dict['eros__beta2'] = [1, None, None, None]
 # Height of notch for volume eroded during cliff retreat
 first_sub_dict['eros__hnotch'] = [1, None, None, None]
 
+DX_REEF = first_sub_dict['grid__spacing'][0]
 
 
 # Extracts topographic profiles  
@@ -217,7 +218,10 @@ for filename in name_files:
 
 # Number of matrix elements, round up to full number.
 #N1 = int(-(-(IPMAX - IPMIN) // IPSTEP)) 
-DX_COV = DX_REEF  # Here equal to 1, dependent of dx used in the reef model .
+if construction:
+    DX_COV = 1
+else:
+    DX_COV = DX_REEF  # Here equal to 1, dependent of dx used in the reef model .
 GAMMA = 1  # Exponent in the kernel. 1 for laplacian, 2 for gaussian.
 
 # Creates a dictionary of matrixes.
