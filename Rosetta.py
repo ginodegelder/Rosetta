@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb  6 11:49:13 2024
+Last modified : 08/04/2025
 
 @author: Yannick Boucharat
 """
@@ -31,11 +31,12 @@ from Inputs import (
 # Python imports
 import numpy as np
 from matplotlib import pyplot as plt
+from arviz import from_netcdf, concat
 import seaborn as sns
 import pandas as pd
-from scipy import interpolate
+from scipy import interpolate, linalg
 from scipy.interpolate import interp1d
-from scipy import linalg
+from scipy.ndimage import gaussian_filter1d
 from datetime import datetime as dtime
 import xsimlab as xs
 import pprint
@@ -57,13 +58,34 @@ N_SAMPLES = inversion_params['n_samples']
 N_TUNE = inversion_params['n_tune']
 TUNE_INTERVAL = inversion_params['tune_interval']
 STP = inversion_params['stp']
-SIGMA = inversion_params['sigma']
-CORR_L = inversion_params['corr_l']
-IPSTEP = inversion_params['ipstep']
-# For now, N_CHAINS = 1, multi chain in dev
-N_CHAINS = 1
-# Fixed dx for forward model, in dev for efficiency
-#DX_REEF = 1
+try:
+    ADD_NOISE = inversion_params['add_noise']
+except KeyError:
+    ADD_NOISE = 0
+try:
+    N_CHAINS = inversion_params['n_chains']
+except KeyError:
+    N_CHAINS = 1
+try:
+    NORM = inversion_params['norm']
+except KeyError:
+    NORM = 'sum'
+
+# Number of processors used in a single chain
+proc_in_chain = nb_proc // N_CHAINS
+# The chain number
+i_chain = rank // proc_in_chain
+# Arrays with ranks of main cores. One main per chain.
+main_list = np.arange(0, nb_proc, proc_in_chain)
+# Assert a virtual rank to each proc
+main = 0
+for i in range(nb_proc):
+    if i in main_list:
+        main = i
+    if i == rank:
+        main_rank = main
+    
+        virtual_rank = i - main
 
 
 # Check if there will be something to plot.
@@ -119,7 +141,12 @@ first_sub_dict['eros__beta2'] = [1, None, None, None]
 # Height of notch for volume eroded during cliff retreat
 first_sub_dict['eros__hnotch'] = [1, None, None, None]
 
-DX_REEF = first_sub_dict['grid__spacing'][0]
+try:
+    DX_REEF = first_sub_dict['grid__spacing'][0]
+#If not given, set to default 1 m.
+except KeyError:
+    first_sub_dict['grid__spacing'] = [1, None, None, None]
+    DX_REEF = 1
 
 
 # Extracts topographic profiles  
@@ -128,6 +155,7 @@ path = topo_obs['topo_path']
 # Extracts all the file names in Topo folder
 name_files =  [file for file in os.listdir(path) if file.endswith(".dat")]
 name_files.sort(key=str.lower)
+n_profiles = len(name_files)
 
 # Check if there is '.dat' topo files in the folder.
 if not name_files:
@@ -155,6 +183,32 @@ if nb_proc != len(name_files) * N_CHAINS:
         f"\nNumber of MCMC chains = {N_CHAINS}"
         )
 
+
+# Extract uncertainties params.
+dict_uncertainties = {}
+num_key = 0
+for key, value in inversion_params.items():
+    if isinstance(value, dict):
+            subdict_name = f"profile_{num_key}"
+            dict_uncertainties[subdict_name] = value
+            num_key += 1
+
+# If no subdicts, same uncertainties for all profiles.
+if num_key == 0:
+    for num_key in range(len(name_files)):
+        subdict_name = f"profile_{num_key}"
+        dict_uncertainties[subdict_name] = {
+            "sigma" : inversion_params["sigma"], 
+            "corr_l" : inversion_params["corr_l"], 
+            "ipstep" : inversion_params["ipstep"]
+            }
+
+# If one subdict but more profiles, same uncertainties
+elif num_key==1 and n_profiles>1:
+    for num_key in range(1, len(name_files)):
+        subdict_name = f"profile_{num_key}"
+        dict_uncertainties[subdict_name] = dict_uncertainties["profile_0"]
+        
 # Creates a dictionary for topographic coordinates. 
 # Each key corresponds to one profile.
 dict_topo_obs = {}
@@ -180,7 +234,7 @@ for filename in name_files:
         # Interpolation of x_obs as a function of y_obs.
         ipobs = interp1d(y_obs, x_obs)  
         # Create an array from y min to y max with the step defined in "Inputs".
-        y_obs_n = np.arange(IPMIN, IPMAX, IPSTEP) 
+        y_obs_n = np.arange(IPMIN, IPMAX, dict_uncertainties[f"profile_{num_key}"]["ipstep"]) 
         # Interpolate x_obs to fit y_obs_n dimension.
         x_obs_n = ipobs(y_obs_n) 
         # Remove offset to start x axis at 0
@@ -194,7 +248,7 @@ for filename in name_files:
         # Interpolation of y_obs as a function of x_obs.
         ipobs = interp1d(x_obs, y_obs)  
         # Create an array from x min to x max with the step defined in "Inputs".
-        x_obs_n = np.arange(IPMIN, IPMAX, IPSTEP) 
+        x_obs_n = np.arange(IPMIN, IPMAX, dict_uncertainties[f"profile_{num_key}"]["ipstep"]) 
         # Interpolate y_obs to fit x_obs_n dimension.
         y_obs_n = ipobs(x_obs_n) 
         
@@ -202,6 +256,18 @@ for filename in name_files:
     Y_OBS_MIN = min(y_obs)  # Min y value from observed topo
     Y_OBS_MAX = max(y_obs)  # Max y value from observed topo
     
+    # Noise
+    if ADD_NOISE == 1:
+        sigma = dict_uncertainties[f"profile_{num_key}"]["sigma"]
+        y_obs_n += np.random.normal(loc=0, scale=sigma, size=y_obs_n.shape)
+
+    elif ADD_NOISE == 2:
+        sigma = dict_uncertainties[f"profile_{num_key}"]["sigma"]
+        corr_l = dict_uncertainties[f"profile_{num_key}"]["corr_l"]
+        noise = np.random.normal(loc=0, scale=sigma, size=y_obs_n.shape)
+        correlated_noise = gaussian_filter1d(noise, sigma=corr_l)
+        y_obs_n += correlated_noise
+
     # Puts values in the dictionnary 
     dict_topo_obs[f"topo_obs_{num_key}"] = {
         f"x_obs_{num_key}" : x_obs_n,
@@ -213,39 +279,38 @@ for filename in name_files:
         }
     num_key += 1
 
-
 # Matrixes
-
-# Number of matrix elements, round up to full number.
-#N1 = int(-(-(IPMAX - IPMIN) // IPSTEP)) 
-if construction:
-    DX_COV = 1
-else:
-    DX_COV = DX_REEF  # Here equal to 1, dependent of dx used in the reef model .
 GAMMA = 1  # Exponent in the kernel. 1 for laplacian, 2 for gaussian.
 
 # Creates a dictionary of matrixes.
 # Each key corresponds to one profile.
 dict_matrix = {}
 
+# PUT ONLY ONE MATRIX PER RANK
 for key in dict_topo_obs.keys():
     # Extracts the number of the subdict 
     num_key = int(''.join(filter(str.isdigit, key)))
-    # Computing inverse covariance.
-    # Number of matrix elements, round up to full number.
-    N1 = int(-(-(dict_topo_obs[key][f'ipmax_{num_key}'] - 
-                 dict_topo_obs[key][f'ipmin_{num_key}']) // IPSTEP)) 
-    # First matrix: the physical model error. Computes the covariance.
-    covar = cov.exponential_covar_1d(N1, SIGMA, CORR_L, dx = DX_COV, 
-                                     gamma = GAMMA, truncate = None) 
-    # Second one, measurement error. Computes the inverse covariance.
-    icovar = linalg.inv(covar) 
-    # Puts matrixes in "dict_matrix"
-    dict_matrix[f"matrix_profile_{num_key}"] = {
-        f"covar_{num_key}" : covar,
-        f"icovar_{num_key}" : icovar
-        }
-
+    # For first chain
+    if virtual_rank == num_key:
+        # Computing inverse covariance.
+        # Number of matrix elements, round up to full number.
+        n1 = int(-(-(dict_topo_obs[key][f'ipmax_{num_key}'] - 
+                    dict_topo_obs[key][f'ipmin_{num_key}']) // 
+                    dict_uncertainties[f"profile_{num_key}"]["ipstep"])) 
+        
+        sigma = dict_uncertainties[f"profile_{num_key}"]["sigma"]
+        corr_l = dict_uncertainties[f"profile_{num_key}"]["corr_l"]
+        dx_cov = dict_uncertainties[f"profile_{num_key}"]["ipstep"]
+        # First matrix: the physical model error. Computes the covariance.
+        covar = cov.exponential_covar_1d(n1, sigma, corr_l, dx = dx_cov, 
+                                        gamma = GAMMA, truncate = None) 
+        # Second one, measurement error. Computes the inverse covariance.
+        icovar = linalg.inv(covar) 
+        # Puts matrixes in "dict_matrix"
+        dict_matrix[f"matrix_profile_{num_key}"] = {
+            f"covar_{num_key}" : covar,
+            f"icovar_{num_key}" : icovar
+            }
 
 # Extracts SL nodes and reef parameters.  
 # Converts them in panda dataframes and separates fixed and free nodes or 
@@ -475,12 +540,12 @@ for i in range(1, N_CHAINS):
     # One sub_master core for each chain, eg. 3 profiles and 3 chains : 9 cores
     # with sub_master = [3,6]
     sub_master.append(i * len(name_files))
-    sub_chain = []
+    sub_chain = np.array([])
     # Add a random perturbation to the parameters based on its standard dev.
     for j in range(len(x0)):
         perturb = np.random.uniform(-1, 1) * prop_S[j]
         param_j = x0[j] + perturb
-        sub_chain.append(param_j)
+        sub_chain = np.append(sub_chain, param_j)
     # Add the sub_chain to chains
     chains.append(sub_chain)
 
@@ -732,8 +797,45 @@ def misfit(axis_n, axis_obs_n, icovar_i):
     
     return fit
 
+def norm_fits(fits, norm):
+    """
+    Computes the total misfit, according to a normalization asked by user.
 
-def align(x, y, ipmin_i, ipmax_i, y_obs_min):
+    Parameters
+    ----------
+    fits : 1D list
+        The list of fits.
+    norm : string
+        The normalization type.
+
+    Returns
+    -------
+    tot_fit : float
+        The total misfit.
+
+    """
+
+    if norm == 'sum':
+        tot_fit = sum(fits)
+    
+    elif norm == 'euclidian':        
+        arr_fits = np.array(fits)
+        tot_fit = np.sqrt(sum(arr_fits**2))
+
+    elif norm == 'mean':
+        tot_fit = np.mean(fits)
+    
+    elif norm == 'euclid_mean':
+        arr_fits = np.array(fits)
+        tot_fit = np.sqrt(sum(arr_fits**2)) / n_profiles
+
+    else:
+        raise ValueError("Invalid input for the norm, should be 'sum', "
+                         "'euclidian', 'mean' or 'euclid_mean'. Type : str ")
+
+    return tot_fit
+
+def align(x, y, ipmin_i, ipmax_i, ipstep_i, y_obs_min):
     """
     Cut the simulated array to fit with topo_obs dimensions and avoid offsets.
     
@@ -775,7 +877,7 @@ def align(x, y, ipmin_i, ipmax_i, y_obs_min):
         ipmod = interp1d(y, x)
         # Generate new continuous y values from bottom to top of the observed 
         # profile
-        y_n = np.arange(ipmin_i, ipmax_i, IPSTEP)
+        y_n = np.arange(ipmin_i, ipmax_i, ipstep_i)
         # Interpolation of the horizontal values on new y_n axis.
         x_n = ipmod(y_n)
         # Remove offset to start x axis at 0.
@@ -789,7 +891,7 @@ def align(x, y, ipmin_i, ipmax_i, y_obs_min):
         ipmod = interp1d(x, y) # Interpolate y as a function of x.
         # Generate new continuous x values from x_start to max x value in topo_obs.
         # with the step defined in Inputs.inversion_params.
-        x_n = np.arange(x_start, x_start - ipmin_i + ipmax_i, IPSTEP)
+        x_n = np.arange(x_start, x_start - ipmin_i + ipmax_i, ipstep_i)
         y_n = ipmod(x_n) # Interpolation of the vertical values on new x_n axis.
         x_n = x_n - x_n[0] # Remove the offset to have x axis starting at 0.
     
@@ -818,7 +920,6 @@ def run_reef(input_vars):
     """
     # Starting time of the model
     tmax = TSTART * 1e3 
-    # print(tmax)
     
     # Set the model type. 
     # If coral construction and platform = True, model_type = reef_platform.
@@ -863,9 +964,7 @@ def run_reef(input_vars):
     
     with DicoModels().models[ds_in.model_name]:
         ds = (ds_in.xsimlab.run())
-        
-    #print("simu rank ", rank)
-    
+
     # Extracts the last topo profile.
     x = ds.x[:].values
     y = ds.profile__z[:].values
@@ -928,6 +1027,107 @@ def report_REEF_error(REEF_inputs):
     
     return
 
+def compute_and_fit(dict_input_vars, dict_save_run, key, compute=True):
+    """
+    Asks run_reef() to run the forward model, or extracts the saved outputs.
+    Computes misfit.
+
+    Parameters
+    ----------
+    dict_input_vars : nested dictionnary 
+        Each subdict contains all the parameters for one reef simulation. 
+        The number of subdicts corresponds to the number of topographic 
+        profiles to inverse.
+    dict_save_run : nested dictionnary
+        Each sub-dictionnary is a save of the outputs values from the 
+        simulation of the last iteration. One sub-dictionnary for one 
+        core/topographic profile.
+    key : string
+        Key of the dict_input_vars key to compute the good forward.
+    compute : bool
+        If True, computes forward, else, extracts saved outputs
+
+    Returns
+    -------
+    fit : float
+        Misfit value from misfit() function
+    dict_pred : dictionnary
+        The predictions, x and y outputs from the model.
+    dict_save_run : nested dictionnary
+        The updated dictionnary from inputs.
+    crash : bool
+        True if the forward model crashed
+
+    """
+    crash = False
+    if compute:
+        # Run the reef simulation on the selected core.
+        try:
+            x, y = run_reef(dict_input_vars[key])
+            # Empty dict_save_run before new saves.
+            dict_save_run = {}
+            # Update dict_save_run.
+            dict_save_run = {f"rank_{virtual_rank}" : {
+                "x" : x,
+                "y" : y
+                    }}
+        except Exception:
+            # Report the error
+            report_REEF_error(dict_input_vars[key])
+            # Do not update save_run as model is rejected.
+            crash = True
+            return None, None, dict_save_run, crash
+    
+    else:
+        # Uses the saved outputs from last run.
+        x = dict_save_run[f"rank_{virtual_rank}"]["x"]
+        y = dict_save_run[f"rank_{virtual_rank}"]["y"]
+        # Empty dict_save_run before new saves.
+        dict_save_run = {}
+        # Update dict_save_run. No need here but add it for 
+        # gathering simplicity.
+        dict_save_run = {f"rank_{virtual_rank}" : {
+            "x" : x,
+            "y" : y
+                }}
+    
+    # Extracts min and max x values from observed topography.
+    ipmin_i = dict_topo_obs[f"topo_obs_{virtual_rank}"] \
+        [f"ipmin_{virtual_rank}"]
+    ipmax_i = dict_topo_obs[f"topo_obs_{virtual_rank}"] \
+        [f"ipmax_{virtual_rank}"]
+    # Minimum y_obs value.
+    y_obs_min_i = dict_topo_obs[f"topo_obs_{virtual_rank}"] \
+        [f"y_obs_min_{virtual_rank}"]
+    ipstep_i = dict_uncertainties[f"profile_{virtual_rank}"] \
+        ["ipstep"]
+    # Align the simulation with topo_obs.
+    x_n, y_n = align(x, y, ipmin_i, ipmax_i, ipstep_i, y_obs_min_i)
+    # Store them in a dictionary for posterior predictions.
+    dict_pred = {
+        f"x_{virtual_rank}" : x_n,
+        f"y_{virtual_rank}" : y_n
+        }
+    # Extracts the inverse covariance matrix.
+    icovar_i = dict_matrix[f"matrix_profile_{virtual_rank}"] \
+        [f"icovar_{virtual_rank}"]
+    
+    if not construction:
+        # Extract observed x
+        x_obs_n = dict_topo_obs[f"topo_obs_{virtual_rank}"] \
+            [f"x_obs_{virtual_rank}"]
+        # Computes the misfit.
+        fit = misfit(x_n, x_obs_n, icovar_i)
+
+    else:
+        # Extracts the observed elevation.
+        y_obs_n = dict_topo_obs[f"topo_obs_{virtual_rank}"] \
+            [f"y_obs_{virtual_rank}"]
+        # Computes the misfit.
+        fit = misfit(y_n, y_obs_n, icovar_i)
+    
+    return fit, dict_pred, dict_save_run, crash
+
 
 def loglike(x, dict_save_run, dict_save_vars):
     """
@@ -966,184 +1166,108 @@ def loglike(x, dict_save_run, dict_save_vars):
     dict_input_vars, dict_save_vars, tnew, enew, focus_run = \
         param(x, dict_save_vars)
     
-    crash = False
     sum_fit = 0 
     predictions = {}
     
-    #print()
-    #print('save_run',dict_save_run)
-    #print()
     if focus_run == 'ALL':
         for key in dict_input_vars.keys():
             num_key = int(''.join(filter(str.isdigit, key)))
             
             # Selects the core.
-            if rank == num_key:  
+            if virtual_rank == num_key:  
                 # Run the reef simulation on the selected core.
-                try:
-                    x, y = run_reef(dict_input_vars[key])
-                    # Empty dict_save_run before new saves.
-                    dict_save_run = {}
-                    # Update dict_save_run.
-                    dict_save_run = {f"rank_{rank}" : {
-                        "x" : x,
-                        "y" : y
-                            }}
-                except Exception:
-                    # Report the error
-                    report_REEF_error(dict_input_vars[key])
-                    # Do not update save_run as model is rejected.
-                    crash = True
+                fit, dict_pred, dict_save_run, crash = \
+                    compute_and_fit(dict_input_vars, dict_save_run,
+                                    key)
+                if crash:
                     break
-                
-                # Extracts min and max x values from observed topography.
-                ipmin_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"ipmin_{num_key}"]
-                ipmax_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"ipmax_{num_key}"]
-                # Minimum y_obs value.
-                y_obs_min_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"y_obs_min_{num_key}"]
-                # Align the simulation with topo_obs.
-                x_n, y_n = align(x, y, ipmin_i, ipmax_i, y_obs_min_i)
-                # Store them in a dictionary for posterior predictions.
-                dict_pred = {
-                    f"x_{num_key}" : x_n,
-                    f"y_{num_key}" : y_n
-                    }
-                # Extracts the inverse covariance matrix.
-                icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
-                   [f"icovar_{num_key}"]
-                
-                if not construction:
-                    # Extract observed x
-                    x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"x_obs_{num_key}"]
-                    # Computes the misfit.
-                    fit = misfit(x_n, x_obs_n, icovar_i)
-
-                else:
-                    # Extracts the observed elevation.
-                    y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"y_obs_{num_key}"]
-                    # Computes the misfit.
-                    fit = misfit(y_n, y_obs_n, icovar_i)
         
     elif type(focus_run) == int:
         for key in dict_input_vars.keys():
             num_key = int(''.join(filter(str.isdigit, key)))
             
-            if rank == focus_run and rank == num_key:
+            if virtual_rank == focus_run and virtual_rank == num_key:
                 # Run the reef simulation on the selected core.
-                try:
-                    x, y = run_reef(dict_input_vars[key])
-                    # Empty dict_save_run before new saves.
-                    dict_save_run = {}
-                    # Update dict_save_run.
-                    dict_save_run = {f"rank_{rank}" : {
-                        "x" : x,
-                        "y" : y
-                            }}
-                except Exception:
-                    # Report the error
-                    report_REEF_error(dict_input_vars[key])
-                    # Do not update save_run as model is rejected.
-                    crash = True
+                fit, dict_pred, dict_save_run, crash = \
+                    compute_and_fit(dict_input_vars, dict_save_run,
+                                    key)
+                if crash:
                     break
-                
-                # Extracts min and max x values from observed topography.
-                ipmin_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"ipmin_{num_key}"]
-                ipmax_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"ipmax_{num_key}"]
-                # Minimum y_obs value.
-                y_obs_min_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                    [f"y_obs_min_{num_key}"]
-                # Align the simulation with topo_obs.
-                x_n, y_n = align(x, y, ipmin_i, ipmax_i, y_obs_min_i)
-                # Store them in a dictionary for posterior predictions.
-                dict_pred = {
-                    f"x_{num_key}" : x_n,
-                    f"y_{num_key}" : y_n
-                    }
-                # Extracts the inverse covariance matrix.
-                icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
-                   [f"icovar_{num_key}"]
-                
-                if not construction:
-                    # Extract observed x
-                    x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"x_obs_{num_key}"]
-                    # Computes the misfit.
-                    fit = misfit(x_n, x_obs_n, icovar_i)
-
-                else:
-                    # Extracts the observed elevation.
-                    y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"y_obs_{num_key}"]
-                    # Computes the misfit.
-                    fit = misfit(y_n, y_obs_n, icovar_i)
             
             else:                
                 # Selects the core.
-                if rank == num_key:
+                if virtual_rank == num_key:
                     # Uses the saved outputs from last run.
-                    x = dict_save_run[f"rank_{rank}"]["x"]
-                    y = dict_save_run[f"rank_{rank}"]["y"]
-                    # Empty dict_save_run before new saves.
-                    dict_save_run = {}
-                    # Update dict_save_run. No need here but add it for 
-                    # gathering simplicity.
-                    dict_save_run = {f"rank_{rank}" : {
-                        "x" : x,
-                        "y" : y
-                            }}
-                    # Extracts min and max x values from observed topography.
-                    ipmin_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"ipmin_{num_key}"]
-                    ipmax_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"ipmax_{num_key}"]
-                    # Minimum y_obs value.
-                    y_obs_min_i = dict_topo_obs[f"topo_obs_{num_key}"] \
-                        [f"y_obs_min_{num_key}"]
-                    # Align the simulation with topo_obs.
-                    x_n, y_n = align(x, y, ipmin_i, ipmax_i, y_obs_min_i)
-                    # Store them in a dictionary for posterior predictions.
-                    dict_pred = {
-                        f"x_{num_key}" : x_n,
-                        f"y_{num_key}" : y_n
-                        }
-                    # Extracts the inverse covariance matrix.
-                    icovar_i = dict_matrix[f"matrix_profile_{num_key}"] \
-                       [f"icovar_{num_key}"]
-                    if not construction:
-                        # Extract observed x
-                        x_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                            [f"x_obs_{num_key}"]
-                        # Computes the misfit.
-                        fit = misfit(x_n, x_obs_n, icovar_i)
-
-                    else:
-                        # Extracts the observed elevation.
-                        y_obs_n = dict_topo_obs[f"topo_obs_{num_key}"] \
-                            [f"y_obs_{num_key}"]
-                        # Computes the misfit.
-                        fit = misfit(y_n, y_obs_n, icovar_i)                  
+                    fit, dict_pred, dict_save_run, crash = \
+                    compute_and_fit(dict_input_vars, dict_save_run, 
+                                    key, compute=False)            
     
-    # Collects all run saves. Allgather argument concatenates values in a list.
-    list_dict_save_run = comm.allgather(dict_save_run)
+    # All ranks inside a chain are sharing data
+    # Main ranks
+    if rank in main_list:
+        # Create a list with their own values
+        list_dict_save_run = [dict_save_run]
+        list_crash = [crash]
+        list_dict_pred = [dict_pred]
+        list_fit = [fit]
+
+        # Fill the lists with the other ranks inside the same chain
+        for other_rank in range(rank+1, rank+proc_in_chain):
+            # Send their data and at the same time receive from other ranks
+            rec_dict_save_run = comm.sendrecv(dict_save_run, 
+                                               dest=other_rank,
+                                               source=other_rank)
+            list_dict_save_run.append(rec_dict_save_run)
+
+            rec_crash = comm.sendrecv(crash, dest=other_rank,
+                                       source = other_rank)
+            list_crash.append(rec_crash)
+
+            rec_dict_pred = comm.sendrecv(dict_pred, dest=other_rank,
+                                       source = other_rank)
+            list_dict_pred.append(rec_dict_pred)
+
+            rec_fit = comm.sendrecv(fit, dest=other_rank,
+                                       source = other_rank)
+            list_fit.append(rec_fit)
+            
+    # Other ranks
+    else:
+        # Same process than above for ranks which are not mains
+        list_dict_save_run = [dict_save_run]
+        list_crash = [crash]
+        list_dict_pred = [dict_pred]
+        list_fit = [fit]
+        for other_rank in range(main_rank, main_rank+proc_in_chain):
+            if other_rank==rank:
+                continue
+            else:
+                rec_dict_save_run = comm.sendrecv(dict_save_run, 
+                                                dest=other_rank,
+                                                source=other_rank)
+                list_dict_save_run.append(rec_dict_save_run)
+
+                rec_crash = comm.sendrecv(crash, dest=other_rank,
+                                        source = other_rank)
+                list_crash.append(rec_crash)
+
+                rec_dict_pred = comm.sendrecv(dict_pred, dest=other_rank,
+                                        source = other_rank)
+                list_dict_pred.append(rec_dict_pred)
+
+                rec_fit = comm.sendrecv(fit, dest=other_rank,
+                                        source = other_rank)
+                list_fit.append(rec_fit)
+
     # Remove the list.
     dict_save_run = {key: value for dicos in list_dict_save_run 
                      for key, value in dicos.items()}
     
     # Check if a model crashed 
-    list_crash = comm.allgather(crash)
     if True in list_crash:
         # If yes, return None for loglike and predictions
         return None, None, dict_save_run, dict_save_vars
 
-    # Collects the posterior predictions dictionnaries on each core.
-    list_dict_pred = comm.allgather(dict_pred)
     # Concatenate all these dictionnaries in the "predictions" dictionary.
     for dict in list_dict_pred:
         for key in dict.keys():
@@ -1151,13 +1275,10 @@ def loglike(x, dict_save_run, dict_save_vars):
     # Store SL posterior predictions
     predictions["t"] = tnew
     predictions["e"] = enew
+
+    tot_fit = norm_fits(list_fit, NORM)
     
-    # Collects the misfits calculated on each core.
-    list_fit = comm.allgather(fit)
-    # Computes the sum of the misfits .
-    sum_fit = sum(list_fit)
-    
-    return -0.5 * sum_fit, predictions, dict_save_run, dict_save_vars
+    return -0.5 * tot_fit, predictions, dict_save_run, dict_save_vars
 
 # Run 
 
@@ -1166,7 +1287,7 @@ chain = Metropolis1dStep()
 chain.proposal = proposal  
 chain.logprior = prior 
 chain.loglikelihood = loglike 
-chain.show_stats = 10000
+chain.show_stats = 1000
 chain.prop_S = prop_S
 
 chain.verbose = 0
@@ -1177,23 +1298,40 @@ chain.add_stat("prop_S")
 chain.add_stat("accept_ratio")
 chain.add_stat("parameter_accept_ratio")
 
+
 # Create the Out folder
-if rank == 0:    
+if rank in main_list:    
+    if rank == 0:
+        time_output = dtime.now().strftime('%d-%m-%Y_%H.%M.%S')  
+        for other_rank in main_list:
+            if other_rank==rank:
+                continue
+            else:
+                comm.send(time_output, dest=other_rank, tag=99)   
+    else:
+        time_output = comm.recv(source=0, tag=99)
     # Extracts time of the form day-month-year_hour.min.
-    time_output = dtime.now().strftime('%d-%m-%Y_%H.%M')     
+    #time_output = dtime.now().strftime('%d-%m-%Y_%H.%M.%S')     
     # Creates a unique name with N_SAMPLES, SIGMA IPSTEP and time_output.
-    Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
-                 str(IPSTEP) + '_' + time_output)
+    Folder_name = ('Figs_' + str(N_SAMPLES) + '_' + time_output)
     # Creates a path with Folder_name.
-    Folder_path = os.path.join(os.getcwd(), 'Outs/' + Folder_name)
+    Folder_path = os.path.join(os.getcwd(), 'Outs/' + Folder_name + 
+                               f"/chain_{i_chain}")
     # Creates the directory for the Outs.
     os.makedirs(Folder_path)
 
     # Creates a folder to store the outputs raw data.
     Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
     os.makedirs(Df_folder_path)
-    
-    for other_rank in range(1, nb_proc):
+
+    if rank == 0:
+        All_chains_folder = os.path.join(os.getcwd(), 'Outs/' + Folder_name + 
+                               f"/all_chains")
+        All_chains_df_folder = os.path.join(os.getcwd(), All_chains_folder + '/Dataframes')
+        os.makedirs(All_chains_folder)
+        os.makedirs(All_chains_df_folder)
+   
+    for other_rank in range(rank+1, rank+proc_in_chain):
         comm.send(Df_folder_path, dest=other_rank)
     
     # Save Inputs file in Figs folder.
@@ -1219,7 +1357,7 @@ if rank == 0:
         f.write("\n")
         
 else:
-    Df_folder_path = comm.recv(source = 0)
+    Df_folder_path = comm.recv(source = main_rank)
 
 # Run the algorithm
 chain.run(chains, N_SAMPLES, Df_folder_path, tune = N_TUNE, 
@@ -1231,31 +1369,14 @@ chain.run(chains, N_SAMPLES, Df_folder_path, tune = N_TUNE,
 # Plotting
 # =============================================================================
 
-if rank == 0:
+if rank in main_list:
     
     # Erase the temporary SL folder.
-    shutil.rmtree(temp_SL_dir)
-    
     # Print duration of the algorithm
     print("\ntotal duration:")
     print(chain.duration)
     
     # Some statistics, records of best SL, profile... 
-# =============================================================================
-#     # Extracts time of the form day-month-year_hour.min.
-#     time_output = dtime.now().strftime('%d-%m-%Y_%H.%M')     
-#     # Creates a unique name with N_SAMPLES, SIGMA IPSTEP and time_output.
-#     Folder_name = ('Figs_' + str(N_SAMPLES) + '_sig.' + str(SIGMA) + '_ip.' + 
-#                  str(IPSTEP) + '_' + time_output)
-#     # Creates a path with Folder_name.
-#     Folder_path = os.path.join(os.getcwd(), 'Outs/' + Folder_name)
-#     # Creates the directory for the Outs.
-#     os.makedirs(Folder_path)
-# 
-#     # Creates a folder to store the outputs raw data.
-#     Df_folder_path = os.path.join(os.getcwd(), Folder_path + '/Dataframes')
-#     os.makedirs(Df_folder_path)
-# =============================================================================
     
     # Some trace plots for statistics.
     # Creates a folder to store stats figures.
@@ -1300,16 +1421,16 @@ if rank == 0:
         y_obs = dict_topo_obs[f"topo_obs_{i}"][f"y_obs_{i}"]
 
         if not construction:
-            x_n = chain.posterior_predictive[f"x_{i}"][0, STP:, :]
-            y_n = chain.posterior_predictive[f"y_{i}"][0, 0, :]
+            x_n = chain.posterior_predictive[f"x_{i}"][STP:, :]
+            y_n = chain.posterior_predictive[f"y_{i}"][0, :]
             fig, fig2 = Plot_FigS4d.profile_x(
                 x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
                 )
             plt.close()
 
         else:
-            x_n = chain.posterior_predictive[f"x_{i}"][0, 0, :]
-            y_n = chain.posterior_predictive[f"y_{i}"][0, STP:, :]
+            x_n = chain.posterior_predictive[f"x_{i}"][0, :]
+            y_n = chain.posterior_predictive[f"y_{i}"][STP:, :]
             fig, fig2 = Plot_FigS4d.profile_y(
                 x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
                 )
@@ -1323,8 +1444,7 @@ if rank == 0:
     SL_folder_path = os.path.join(os.getcwd(), Folder_path + '/SL')
     os.makedirs(SL_folder_path)
     xsl = np.arange(0, TSTART, DT_REEF*10**(-3))
-    #xsl = chain.posterior_predictive["t"][0, :, :][STP:]
-    ysl = chain.posterior_predictive["e"][0, :, :][STP:]
+    ysl = chain.posterior_predictive["e"][:, :][STP:]
     fig, fig2 = Plot_FigS4d.sealevel(xsl, ysl, best, SL_folder_path)
     
     mean = np.mean(ysl, axis = 0)
@@ -1426,5 +1546,321 @@ if rank == 0:
             j += 1
             
     plt.close('all')
-        
+
+    # Remomve stuck iterations
+    loglike = chain.stats["loglikelihood"]
+    loglike_i = chain.stats["loglikelihood"][:-1]
+    loglike_i_plus1 = chain.stats["loglikelihood"][1:]
+    # loglike derivative
+    dlog = loglike_i_plus1 - loglike_i
+    mask = np.ones_like(loglike, dtype=bool)
+    # Find segments of consecutive zeros
+    segments = np.split(np.arange(len(dlog)), np.where(dlog != 0)[0]+1)
+    # Mark segments with more than 100 consecutive zeros
+    for segment in segments:
+        if len(segment) > 100:
+            mask[segment] = False
+    
+    cleaned_loglike = loglike[mask]
+    chain.stats["loglikelihood"] = cleaned_loglike
+
+    accept = chain.stats["accept_ratio"]
+    cleaned_accept = accept[mask]
+    chain.stats["accept_ratio"] = cleaned_accept
+
+    samples = chain.samples
+    print("sample shape ", samples.shape)
+    cleaned_samples = samples[np.all(mask,axis=1)]
+    chain.samples = cleaned_samples
+
+    post_pred = chain.posterior_predictive
+    cleaned_post_pred = {key: value[np.all(mask,axis=1)] for key, value in chain.posterior_predictive.items()}
+    chain.posterior_predictive = cleaned_post_pred
+
+    n_samples = len(cleaned_loglike)
+
+if rank in main_list and rank != 0:
+    # Unfixed bug of overflow by sending directly chain results
+    #chain = None
+    #chain = from_netcdf(f"Df_folder_path/chain_{i_chain}/MCMC_chain_{i_chain}.nc")
+    #comm.send(chain, dest=0, tag=100)
+    stats = chain.stats
+    posterior_predictive = chain.posterior_predictive
+    samples = chain.samples
+    if len(cleaned_loglike)==1 or len(cleaned_loglike)<=STP:
+        print("Chain ", i_chain, "has nothing to show.... Number of samples stuck :", N_SAMPLES - len(cleaned_loglike))
+        print("Removing chain ", i_chain, "from all_chains folder")   
+        stats, posterior_predictive, samples = None, None, None     
+        comm.send(stats, dest=0, tag=100)
+        comm.send(posterior_predictive, dest=0, tag=101)
+        comm.send(samples, dest=0, tag=102)
+        comm.send(n_samples, dest=0, tag=103)
+
+    else : 
+        comm.send(stats, dest=0, tag=100)
+        comm.send(posterior_predictive, dest=0, tag=101)
+        comm.send(samples, dest=0, tag=102)
+        comm.send(n_samples, dest=0, tag=103)
+
+
+elif rank == 0 and N_CHAINS > 1:
+    #chain = None
+    #chain = from_netcdf("Df_folder_path/MCMC_chain_O.nc")
+    #chain_list = [chain]
+    #chain = None
+    if len(cleaned_loglike)==1 or len(cleaned_loglike)<=STP:
+        print("Chain ", i_chain, "has nothing to show.... Number of samples stuck :", len(loglike) - len(cleaned_loglike))
+        print("Removing chain ", i_chain, "from all_chains folder")   
+        stats, posterior_predictive, samples = None, None, None     
+    else:
+        stats = chain.stats
+        posterior_predictive = chain.posterior_predictive
+        samples = chain.samples
+    list_stats = [stats]
+    list_post = [posterior_predictive]
+    list_samples = [samples]
+    for other_rank in main_list[1:]:
+        other_stats = comm.recv(source=other_rank, tag=100)
+        if not other_stats:
+            trash = comm.recv(source=other_rank, tag=101)
+            trash = comm.recv(source=other_rank, tag=102)
+        else:
+            other_post = comm.recv(source=other_rank, tag=101)
+            other_samples = comm.recv(source=other_rank, tag=102)
+            list_post.append(other_post)
+            list_samples.append(other_samples)
+        n = comm.recv(source=other_rank, tag=103)
+        #other_chain = from_netcdf(f"{Folder_path}/chain_{other_rank}/MCMC_chain_{other_rank}.nc")
+        list_stats.append(other_stats)    
+        n_samples += n
+        #other_chain = None
+
+    # Filter None values inside lists. It removes bad chains
+    list_stats = list(filter(None, list_stats))
+    #list_post = list(filter(None, list_post))
+    #list_samples = list(filter(None, list_samples))
+    print("------------")
+    print("In all chains")
+    print("------------")
+    print("Total number of chains :", len(list_stats))
+    print("Total number of samples :", n_samples)
+
+    #concat_chain = concat(chain_list, dim='chain')
+    
+    shutil.rmtree(temp_SL_dir)
+
+    
+    # Some trace plots for statistics.
+    # Creates a folder to store stats figures.
+    Stats_folder_path = os.path.join(os.getcwd(), All_chains_folder + '/Stats')
+    os.makedirs(Stats_folder_path)
+    
+    # Evolution of the loglike at each step.
+    fig = plt.figure()
+    i_chain = 0
+    for i_stat in list_stats:
+        plt.plot(i_stat["loglikelihood"][1:], label=f"chain {i_chain}")
+        i_chain += 1
+    plt.legend()
+    fig.savefig(Stats_folder_path + '/Stats-Loglikelihood.png')
+    
+    # Acceptance ratio of the simulations.
+    fig = plt.figure()
+    i_chain = 0
+    for i_stat in list_stats:
+        plt.plot(i_stat["accept_ratio"][1:], label=f"chain {i_chain}")
+        i_chain += 1
+    plt.legend()
+    fig.savefig(Stats_folder_path + '/Stats-accept_ratio.png')
+    
+    plt.close('all')
+    
+    # Profile plot.
+    best_list = []
+    for i_stat in list_stats:
+        best_log = np.max(i_stat["loglikelihood"][STP:])
+        best_list.append(best_log)
+    best_loglike_pool = max(best_list)
+    best_chain = np.argmax(best_list)
+    
+    # Remove extensions from topo filenames 
+    name_files_short = [os.path.splitext(filename)[0] 
+                        for filename in name_files]
+    for i in range(len(name_files_short)):
+        Sub_folder_name = name_files_short[i]
+        Sub_folder_path = os.path.join(os.getcwd(), All_chains_folder + 
+                                       '/' + Sub_folder_name)
+        os.makedirs(Sub_folder_path)
+        x_obs = dict_topo_obs[f"topo_obs_{i}"][f"x_obs_{i}"]
+        y_obs = dict_topo_obs[f"topo_obs_{i}"][f"y_obs_{i}"]
+
+        if not construction:
+            x_n_list = [i_post[f"x_{i}"][STP:, :] for i_post in list_post]
+            y_n_list = [i_post[f"y_{i}"][STP:, :] for i_post in list_post]
+            y_n = y_n_list[0][0]
+            x_n = np.vstack(x_n_list)
+
+            fig, fig2 = Plot_FigS4d.profile_x(
+                x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
+                )
+            plt.close()
+
+        else:
+            x_n_list = [i_post[f"x_{i}"][STP:, :] for i_post in list_post]
+            y_n_list = [i_post[f"y_{i}"][STP:, :] for i_post in list_post]
+            x_n = x_n_list[0][0]
+            #y_n = np.vstack(y_n_list)
+            
+            # Step 2: Determine maximum length of x_n (reference length)
+            max_length = max(y.shape[0] for y in y_n_list)
+
+            # Step 3: Pad or truncate arrays to make them uniform
+            padded_y_n_list = []
+            for y in y_n_list:
+                print("y_shape 0", y.shape[0], "y_shape 1", y.shape[1])
+                if y.shape[0] < max_length:
+                    # Pad with NaNs to match the length
+                    pad_width = max_length - y.shape[0]
+                    padded_y = np.pad(y, ((0, pad_width), (0, 0)), constant_values=np.nan)
+                elif y.shape[0] > max_length:
+                    # Truncate if longer
+                    padded_y = y[:max_length, :]
+                else:
+                    # No modification needed
+                    padded_y = y
+                padded_y_n_list.append(padded_y)
+
+            # Step 4: Stack them into a single array (now all have the same shape)
+            y_n = np.vstack(padded_y_n_list)
+
+            fig, fig2 = Plot_FigS4d.profile_y(
+                x_n, y_n, x_obs, y_obs, best, i, Sub_folder_path
+                )
+            plt.close()
+    
+    np.savetxt(Folder_path + '/BestLogLike.txt', [best_loglike_pool])
+    
+    # Sea-level plot 
+    SL_folder_path = os.path.join(os.getcwd(), All_chains_folder + '/SL')
+    os.makedirs(SL_folder_path)
+    xsl = np.arange(0, TSTART, DT_REEF*10**(-3))
+    ysl_list = [post_pred["e"][:, :][STP:] for post_pred in list_post]
+    ysl = np.vstack(ysl_list)
+    fig, fig2 = Plot_FigS4d.sealevel(xsl, ysl, best, SL_folder_path)
+    
+    mean = np.mean(ysl, axis = 0)
+    median = np.percentile(ysl[:, :], 50, axis = 0)
+    best_sl = ysl[best, :]
+    np.savetxt(SL_folder_path + '/MeanSL.txt', mean)
+    np.savetxt(SL_folder_path + '/MedianSL.txt', median)
+    np.savetxt(SL_folder_path + '/BestSL.txt', best_sl)
+    
+    plt.close('all')
+    
+    # Plotting histograms with all free parameters
+    
+    # Plotting the free SL nodes
+    j = 0
+    for i in df_SL_free.index :
+        # Extracts t_start for the name of the plot.
+        istr = str(df_SL_free.loc[i]['t_start'])
+        ages_list = [i_samples[:, j*2][STP:] for i_samples in list_samples]
+        ages = np.hstack(ages_list)
+        elev_list = [i_samples[:, j*2+1][STP:] for i_samples in list_samples]
+        elev = np.hstack(elev_list)
+
+        # Creates a dataframe with the output values for SL from STP point.
+        df = pd.DataFrame({
+            "Age (ka)" : ages, 
+            "SL Elevation (m)" : elev
+            })
+        # Dataframe to save, with all values.
+        df_save = pd.DataFrame({
+            "Age (ka)" : ages, 
+            "SL Elevation (m)" : elev
+            })
+        # Store the dataframe.
+        df_save.to_pickle(All_chains_df_folder + '/df_SL_' + istr + 'ky.pkl')
+        # Plot.
+        fig = sns.jointplot(data = df, x = "Age (ka)", y = "SL Elevation (m)", 
+                            kind = "hex", palette = "colorblind")
+        # Save plot.
+        fig.savefig(SL_folder_path + '/Histogram-' + istr + 'ky.pdf')
+        j += 1
+        plt.close()
+    
+    # Plotting the free reef parameters.
+    # Be carefull, makes n_topo * n² plots, with n the numbers of reef param to 
+    # inverse.
+    
+    # Dicos() is used for the axis and figure titles.
+    dico = Dicos()
+    # Extracts the key of the subdict, and the subdict.
+    j = 0
+    for key, subdict in dict_df_reef_free.items():
+        # Gets the profile number.
+        num_profile = int(''.join(filter(str.isdigit, key)))
+        # Iteration to extract the first value to plot in chain.samples (x).
+        l = j
+        j_save = j
+        for i in subdict.index :
+            # Iteration to extract the second value to plot.
+            l = j_save
+            # Extracts the description of the first parameter to plot.
+            label_i = dico.labels[i]
+            # Factor for this parameter.
+            factor_i = dico.factors[i]
+            for k in subdict.index :
+                # Avoids to plot the same parameter.
+                if i == k :
+                    l += 1
+                else :
+                    # Description of second parameter.
+                    label_k = dico.labels[k]
+                    # Its factor
+                    factor_k = dico.factors[k]
+                    
+                    sample_i_list = [
+                        i_samples[:, len(df_SL_free) * 2 + j][STP:] * factor_i \
+                            for i_samples in list_samples]
+                    sample_k_list = [
+                        i_samples[:, len(df_SL_free) * 2 + l][STP:] * factor_k \
+                            for i_samples in list_samples]
+                    
+                    sample_i = np.hstack(sample_i_list)
+                    sample_k = np.hstack(sample_k_list)
+                    
+                    # Creates a dataframe with the two parameters.
+                    df = pd.DataFrame({
+                        label_i : sample_i,
+                        label_k : sample_k
+                        })
+                    # Dataframe to save, with all values.
+                    df_save = pd.DataFrame({
+                        label_i : sample_i,
+                        label_k : sample_k
+                        })
+                    # Store the dataframe.
+                    df_save.to_pickle(
+                        All_chains_df_folder + '/' + name_files_short[num_profile] + 
+                        '_'  + dico.abbrev[i] + '-' + dico.abbrev[k] + '.pkl'
+                                 )
+                    # Plot.
+                    fig = sns.jointplot(data = df, x = label_i, y = label_k, 
+                                        kind = "hex", palette = "colorblind")
+                    # Save plot.
+                    fig.savefig(
+                        All_chains_folder + '/' + name_files_short[num_profile] + 
+                        '/Histogram-' + dico.abbrev[i] + '-' + dico.abbrev[k] 
+                        + '.pdf'
+                        )
+                    l += 1
+                    plt.close()
+            j += 1
+            
+    plt.close('all')
+    print("Savefigs done")
+
+else:
+    pass
     

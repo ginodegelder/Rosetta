@@ -133,7 +133,6 @@ class UniformGrid1D:
         # Generate x axis
         self.x = np.arange(0., self.length, self.spacing)
         
-        
 #*********************************************************************
 
 @xs.process

@@ -13,7 +13,8 @@ import numpy as np
 from datetime import datetime
 from numpy.random import default_rng
 from mpi4py import MPI
-import arviz
+from arviz import from_netcdf, concat
+import gc
 
 
 from .mcmc_base import MCMCBase
@@ -33,11 +34,23 @@ RESTART = inversion_params['restart']
 # For now, R_HAT = 1.1, multi chain in dev
 R_HAT = 1.1
 # For now, N_CHAINS = 1, multi chain in dev
-n_chains = 1
+n_chains = inversion_params['n_chains']
 # Number of processors used in a single chain
 proc_in_chain = nb_proc // n_chains
 # Arrays with ranks of main cores. One main per chain.
 main_list = np.arange(0, nb_proc, proc_in_chain)
+main = 0
+for i in range(nb_proc):
+    if i in main_list:
+        main = i
+    if i == rank:
+        main_rank = main
+        virtual_rank = i - main
+
+if rank == 0:
+    print("n_chains : ", n_chains)
+    print("proc_in_chain : ", proc_in_chain)
+    print("main_list : ", main_list)
 
 
 class Metropolis1dStep(MCMCBase):
@@ -180,7 +193,7 @@ class Metropolis1dStep(MCMCBase):
             # Multi : does not work with n_chains as it will be concat at the end !!!
             # Here, better let n_chains to 1.
             self.posterior_predictive[key] = np.empty((
-                self.n_chains, self.n_samples, *data_shape))
+                self.n_samples, *data_shape))
 
         # Private arrays
         self._current_iter = 1
@@ -197,7 +210,7 @@ class Metropolis1dStep(MCMCBase):
         self._max_prop_S = self._init_prop_S * 15
 
     def restart_arrays(self, dataset, x0, n, thin, tune, tune_interval,
-                          discard_tuning, posterior_predict):
+                          discard_tuning):#, posterior_predict):
         self.n_vars = x0.size
         # Results arrays
         self.n_samples = n
@@ -211,7 +224,8 @@ class Metropolis1dStep(MCMCBase):
                                 dtype=self.sample_dtype)
         # Concatenate saved and new samples arrays
         self.samples = np.concatenate((saved_samples, self.samples), axis=0)
-
+        del saved_samples
+        gc.collect()
         # Saved loglikelihoods
         save_loglike = dataset.log_likelihood.log_likelihood.values[0,:,:]
         # Saved stats
@@ -219,7 +233,8 @@ class Metropolis1dStep(MCMCBase):
                        .to_dict(data='array')['data_vars'].items())
         save_sample_stat = {key: value['data'][0,:,:] 
                             for key, value in stats_items}
-
+        del stats_items
+        gc.collect()
         # Set self.stats as a dictionary of numpy arrays for each stat
         for stat in self._save_stats:
             # get the stats attributes, the second element of the list is the
@@ -239,24 +254,40 @@ class Metropolis1dStep(MCMCBase):
             else:
                 self.stats[stat] = np.concatenate((save_sample_stat[stat], 
                                                    self.stats[stat]), axis=0)
-
+        del save_sample_stat
+        del save_loglike
+        gc.collect()
         # Extract the post predict keys and values of saved chain.
-        postpred_items = (dataset.posterior_predictive
-                          .to_dict(data='array')['data_vars'].items())
-        # Keep only data values from the values in items.
-        save_posterior_predict = {
-            key: value['data'] for key, value in postpred_items
-            }
-        for key in save_posterior_predict.keys():
-            # Take only one sample from the save.
-            data_shape = save_posterior_predict[key][0,0,:].shape
-            # Create a dict of empty values for the new post predicts.
+        # postpred_items = (dataset.posterior_predictive
+        #                   .to_dict(data='array')['data_vars'].items())
+        # # Keep only data values from the values in items.
+        # save_posterior_predict = {
+        #     key: value['data'] for key, value in postpred_items
+        #     }
+        for key in dataset.posterior_predictive.data_vars.keys():
+            data_shape = dataset.posterior_predictive[key][0,0,:].shape
             self.posterior_predictive[key] = np.empty((
-                self.n_chains, self.n_samples, *data_shape))
+                self.n_samples, *data_shape))
             # Concatenate the values of save dict and empty dict.
-            self.posterior_predictive[key] = np.concatenate((
-                save_posterior_predict[key], 
-                self.posterior_predictive[key]), axis=1)
+            if len(dataset.posterior_predictive.chain.values) > 1:
+                self.posterior_predictive[key] = np.concatenate((
+                    dataset.posterior_predictive.isel(chain=self.i_chain)[key].values, 
+                    self.posterior_predictive[key]), axis=0)
+            else:
+                self.posterior_predictive[key] = np.concatenate((
+                    dataset.posterior_predictive.isel(chain=0)[key].values, 
+                    self.posterior_predictive[key]), axis=0)
+
+        # for key in save_posterior_predict.keys():
+        #     # Take only one sample from the save.
+        #     data_shape = save_posterior_predict[key][0,0,:].shape
+        #     # Create a dict of empty values for the new post predicts.
+        #     self.posterior_predictive[key] = np.empty((
+        #         self.n_chains, self.n_samples, *data_shape))
+        #     # Concatenate the values of save dict and empty dict.
+        #     self.posterior_predictive[key] = np.concatenate((
+        #         save_posterior_predict[key], 
+        #         self.posterior_predictive[key]), axis=1)
             
         # Update n_samples to take saved chain in account. 
         self.n_samples += self.saved_n_samples
@@ -318,7 +349,7 @@ class Metropolis1dStep(MCMCBase):
         isample : integer
         """
         for key in predict.keys():
-            self.posterior_predictive[key][ichain, isample, ...] = predict[key]
+            self.posterior_predictive[key][isample, ...] = predict[key]
 
     def tune(self):
         """
@@ -392,16 +423,15 @@ class Metropolis1dStep(MCMCBase):
         dict_save_vars = {}
 
         if type(RESTART) == str:
-            if rank == 0:
-                dataset = arviz.from_netcdf(
-                    './Outs/'+RESTART+"/Dataframes/MCMC_raw.nc"
+            if rank in main_list:
+                dataset = from_netcdf(
+                    f"./Outs/{RESTART}/chain_{self.i_chain}/Dataframes/MCMC_chain_{self.i_chain}.nc"
                     )
-                    
-                for other_rank in range(1, nb_proc):
+                for other_rank in range(rank+1, rank+proc_in_chain):
                     comm.send(dataset, dest=other_rank, tag=0)
                     
             else:
-                dataset = comm.recv(source = 0, tag=0)
+                dataset = comm.recv(source = main_rank, tag=0)
             
             # Number of runs for saved chain.
             self.saved_n_samples = len(dataset.posterior.draw.values)
@@ -410,52 +440,68 @@ class Metropolis1dStep(MCMCBase):
             
             # Initialize numpy random generator
             rng = default_rng()
-            print("Start Metropolis1dStep")
-            print("----------------------")
-            print("number of saved samples")
-            print(self.saved_n_samples)
+            if rank == 0:
+                print("Start Metropolis1dStep")
+                print("----------------------")
+                print("number of chains")
+                print(n_chains)
+                print("number of saved samples")
+                print(self.saved_n_samples)
 
             x = x0
             # Initialize  likelihood and prior from last sample.
             # Extract for 1 chain. Multi : use self.i_chain
             self._x_loglike = (dataset.log_likelihood
                                .log_likelihood[0, -1].values)
-            # Extract all posterior predict in save file
-            postpred_items = (dataset.posterior_predictive
-                              .to_dict(data='array')['data_vars'].items())
-            # Keep only the last arrays. Multi : use self.i_chain
-            posterior_predict = {key: value['data'][0,-1,:] 
-                                 for key, value in postpred_items}
-
+            # Extract all posterior predict in save file. If here because transition from chain dimension to no chain dim in postpred. 
+            if len(dataset.posterior_predictive.chain.values) > 1:
+                last_postpred = dataset.posterior_predictive.isel(
+                    draw=self.saved_n_samples-1, chain=self.i_chain)
+            else:
+                last_postpred = dataset.posterior_predictive.isel(
+                    draw=self.saved_n_samples-1, chain=0)                             
+            
+            #del postpred_items
             # Fill in dict_save_run in case of early crash
             dict_save_run = {
-                    f"rank_{rank}" : {
-                                      "x" : posterior_predict[f"x_{rank}"],
-                                      "y" : posterior_predict[f"y_{rank}"]
+                    f"rank_{virtual_rank}" : {
+                                      "x" : last_postpred[f"x_{virtual_rank}"].values,
+                                      "y" : last_postpred[f"y_{virtual_rank}"].values
                                       }
                     }
+            
+            dict_last = last_postpred.to_dict(data='array')['data_vars']
+            # Keep only the last arrays. Multi : use self.i_chain
+            posterior_predict = {key: value['data'] 
+                                 for key, value in dict_last.items()}
 
             # Empty the extraction.
-            postpred_items = None
+            del last_postpred
+            gc.collect()
             #self._x_loglike, posterior_predict = self.loglikelihood(x)
             # Re initialize arrays from saved chain.
             self.restart_arrays(dataset, x0, n, thin, tune, tune_interval,
-                               discard_tuned_samples, posterior_predict)
-            
+                               discard_tuned_samples)#, posterior_predict)
+            #posterior_predict = self.posterior_predictive[-1,:]
             # Extract the number of accepted models from saved chain
             n_accept = (dataset.sample_stats.accept_ratio[0,-1,:].values * 
                         self.saved_n_samples)
             # Close the dataset
             del dataset
+            gc.collect()
             n_tup = (self.saved_n_samples, self.saved_n_samples+n)
 
         else:
             # Initialize numpy random generator
             rng = default_rng()
-            print("Start Metropolis1dStep")
-            print("----------------------")
-            print("number of saved samples")
-            print(self.n_samples)
+            if rank == 0:
+                print("Start Metropolis1dStep")
+                print("----------------------")
+                print("number of chains")
+                print(n_chains)
+                print("number of saved samples")
+                print(self.n_samples)
+
             
             # Multi : Each chain has its own x0
             x0 = chains[rank//proc_in_chain]
@@ -488,7 +534,8 @@ class Metropolis1dStep(MCMCBase):
         i_sample = 0
         n_crash = 0
         
-        if rank == 0: # Multi : if rank in main_list
+        if rank in main_list: 
+
             # Start MCMC sampling
             # -------------------
             for i in range(*n_tup):
@@ -531,7 +578,7 @@ class Metropolis1dStep(MCMCBase):
                 
                 # Share the list of parameters and compute_likelihood
                 # Multi : for other_rank in range(rank+1, rank+proc_in_chain)
-                for other_rank in range(1, nb_proc):
+                for other_rank in range(rank+1, rank+proc_in_chain):
                     comm.send(xp, dest=other_rank, tag = 1)
                     comm.send(compute_likelihood, dest=other_rank, tag = 2)
                     
@@ -623,6 +670,7 @@ class Metropolis1dStep(MCMCBase):
                 if self._current_iter % self.show_stats == 0:
                     self.print_stats(i_sample)
                     if self.verbose > 1:
+                        print("Chain :", self.i_chain)
                         print("Position x: {}".format(x))
                         print("Acceptance rate for each parameter:")
                         print(self._accept_ratios)
@@ -633,10 +681,10 @@ class Metropolis1dStep(MCMCBase):
                     i_sample = int(i / thin)
                     # Get chain number. Only 0 for serial case
                     # Multi : self.i_chain 
-                    i_chain = 0
+                    #i_chain = self.i_chain
                     self.save_sample(x, i_sample)
                     self.save_posterior_predictive(posterior_predict,
-                                                   i_chain, i_sample)
+                                                   self.i_chain, i_sample)
                     for stat in self._save_stats:
                         # get the attribute name
                         attr = STATS[stat][0]
@@ -650,23 +698,33 @@ class Metropolis1dStep(MCMCBase):
                 if (self._current_iter % 1000 == 0 or 
                     self._current_iter == n_tup[1]-1):
                     #Multi
-                    #self.write_samples(Outs_path+f'/MCMC_chain_{self.i_chain}.nc', 
+                    self.write_samples(Outs_path+f'/MCMC_chain_{self.i_chain}.nc', 
+                                      format='arviz')
+                    
+                    # dataset = self.get_results(format='arviz')
+                    # Just this to synchronize, in future, compute here rhat
+                    if rank != 0:
+                        saved = "saved"
+                        comm.send(saved, dest=0, tag=42)
+
+                    else:
+                        for other_rank in main_list:
+                            if other_rank==0:
+                                continue
+                            else: 
+                                saved = comm.recv(source=other_rank, tag=42)
+                    #     concat_array = concat(data_list, dim='chain')
+                    #     concat_array.to_netcdf(Outs_path+'/MCMC_raw.nc')
+                    #     concat_array = None
+                    #     data_list = None
+                    # dataset = None
+                    #self.write_samples(Outs_path+'/MCMC_raw.nc', 
                     #                   format='arviz')
-                    #dataset = self.get_results(format='arviz')
-                    #data_list = comm.allgather(dataset)
-                    #if rank == 0:
-                    #    concat_array = arviz.concat(data_list, dim='chain')
-                    #    concat_array.to_netcdf(Outs_path+'/MCMC_raw.nc', 
-                    #                   format='arviz')
-                    #    concat_array = None
-                    #dataset = None
-                    self.write_samples(Outs_path+'/MCMC_raw.nc', 
-                                       format='arviz')
     
                 # Update iter
                 self._current_iter += 1
                 # Send the iteration to other ranks. Multi : change other_ranks
-                for other_rank in range(1, nb_proc):
+                for other_rank in range(rank+1, rank+proc_in_chain):
                     comm.send(self._current_iter, dest=other_rank, tag = 3)
                 
         else:            
@@ -674,8 +732,8 @@ class Metropolis1dStep(MCMCBase):
                  # Multi : Select the master core for the chain         
                  #chain_main = main_list[self.i_chain]
                      
-                 xp = comm.recv(source = 0, tag = 1)
-                 compute_likelihood = comm.recv(source = 0, tag = 2)
+                 xp = comm.recv(source = main_rank, tag = 1)
+                 compute_likelihood = comm.recv(source = main_rank, tag = 2)
                  
                  if compute_likelihood:
                      (xp_loglike, prop_predict, 
@@ -685,7 +743,7 @@ class Metropolis1dStep(MCMCBase):
                      xp_loglike = - np.inf
                      
                  # Synchronize the iteration with rank 0
-                 self._current_iter = comm.recv(source=0, tag=3)
+                 self._current_iter = comm.recv(source=main_rank, tag=3)
                                      
                  
         # Saves the final quantities

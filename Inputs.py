@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 16 14:38:23 2023
+Last modified : 08/04/2025
 
 @author: Yannick Boucharat
 """
@@ -24,13 +24,12 @@ sea_level = {
     # For fixed values : t_start : [None, None, None, e, None, None, None]
     # For free nodes, you have to specify every values
     # You can't fix t or e and vary the other value
-    # The older value has to be fixed 
     # Time in ky, elevation in meters
     
     0 : [None, None, None, 0, None, None, None], # Actual fixed SL node
     6 : [ 5, 7, 0.3, 2, 1, 3.5, 0.3], # First free SL node
     8.5 : [ 7.5, 9, 0.3, -5, -10, -1, 0.5],
-    16 : [None, None, None, -79, None, None, None], # Last fixed SL node
+    16 : [12, 20, 0.5, -79, -150, -50, 1], # Last fixed SL node
 }
 
 
@@ -54,7 +53,7 @@ construction_params = {
     # For fixed one : 'variable_name' : [starting_point, None, None, None]
     # Do not change the variable name
     # Everything in meters and years
-    "reef_params0" : {
+    "Panggang" : {
         # vertical land motion rate
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.1e-3],
         # initial slope of the substrate
@@ -92,7 +91,7 @@ construction_params = {
 #   Put here the sub-dicts with only the free parameters for other topo profile
 # =============================================================================
     # Second dict
-    'reef_params1' : { 
+    'Pari' : { 
         # vertical land motion rate
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.1e-3],
         # Water height for wave base
@@ -105,7 +104,7 @@ construction_params = {
         'construct__Gm': [10e-3, 5e-3, 12e-3, 0.5e-3],
         },
     # Another dict
-    'reef_params2' : {
+    'Putri' : {
         # vertical land motion rate
         'vertical__u': [-0.27e-3, -0.35e-3, -0.20e-3, 0.1e-3],
         # Water height for wave base
@@ -127,6 +126,8 @@ construction_params = {
 # ones only contain the free parameters, with the same format.
 # The other dictionnaries will be sub-dictionnaries in the nesting dictionnary
 # "reef_params".
+
+# Here ignored as construction == True
 
 eros_params = {
     # Timestep for the forward REEF model (years)
@@ -174,6 +175,11 @@ inversion_params = {
     # Restart from a preexistant. 
     # Put the path of the model 'Out' folder or None.
     'restart' : None,
+    # Number of MCMC chains
+    'n_chains' : 8,
+    # Misfit normalization (for multiple profiles inversion).
+    # 'sum', 'euclidian', 'mean' or 'euclid_mean'.
+    'norm': 'sum',
     # Number of simulations
     'n_samples' : 10, 
     # Tune step size until iteration
@@ -181,22 +187,40 @@ inversion_params = {
     # Changes step size every n simu
     'tune_interval' : 500,
     # Starting point for plotting (inferior to n_samples !)
-    'stp' : 0,  
+    'stp' : 0, 
+    # Uncertainties   
+    "profile_0" : { 
+    # Number of points along the x axis (in meters)
+    'ipstep' : 100, 
     # Amplitude in m, related to uncertainty in cliff height
     'sigma' : 5,  
     # Correlation length (multiple of ipstep), related to uncertainty in terrace width
     'corr_l' : 3, 
-    # Every ipstep on x axis, check dz : difference btw simu and observation
-    'ipstep' : 100,  
+    },
+    "profile_1" : {
+    # Number of points along the x axis (in meters)
+    'ipstep' : 50, 
+    # Amplitude in m, related to uncertainty in cliff height
+    'sigma' : 11,  
+    # Correlation length (multiple of ipstep), related to uncertainty in terrace width
+    'corr_l' : 0, 
+    },
+    "profile_2" : {
+    # Number of points along the x axis (in meters)
+    'ipstep' : 50, 
+    # Amplitude in m, related to uncertainty in cliff height
+    'sigma' : 11,  
+    # Correlation length (multiple of ipstep), related to uncertainty in terrace width
+    'corr_l' : 0, 
     }
-
+}
 
 # =============================================================================
 # Observed topography to compare with simulation
 # =============================================================================
 
 topo_obs = {
-    # Path of the text file with x and elevation values of the observed topo
+    # Path to the observed topographies folder
     'topo_path' : './Topo_obs/'
     }
 

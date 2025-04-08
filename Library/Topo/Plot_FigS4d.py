@@ -137,14 +137,21 @@ def profile_y(x_n, y_n, x_obs, y_obs, best, i, path):
     # x_obs = x_obs[stp:]
     # y_obs = y_obs[stp:]
 
-    # First order statistics
-    mean = np.mean(y_n, axis=0)
-    std = np.std(y_n, axis=0)
-    p025 = np.percentile(y_n[:, :], 2.5, axis=0)
-    p25 = np.percentile(y_n[:, :], 25, axis=0)
-    p50 = np.percentile(y_n[:, :], 50, axis=0)
-    p75 = np.percentile(y_n[:, :], 75, axis=0)
-    p975 = np.percentile(y_n[:, :], 97.5, axis=0)
+    # # First order statistics
+    # mean = np.mean(y_n, axis=0)
+    # std = np.std(y_n, axis=0)
+    # p025 = np.percentile(y_n[:, :], 2.5, axis=0)
+    # p25 = np.percentile(y_n[:, :], 25, axis=0)
+    # p50 = np.percentile(y_n[:, :], 50, axis=0)
+    # p75 = np.percentile(y_n[:, :], 75, axis=0)
+    # p975 = np.percentile(y_n[:, :], 97.5, axis=0)
+    mean = np.nanmean(y_n, axis=0)
+    std = np.nanstd(y_n, axis=0)
+    p025 = np.nanpercentile(y_n[:, :], 2.5, axis=0)
+    p25 = np.nanpercentile(y_n[:, :], 25, axis=0)
+    p50 = np.nanpercentile(y_n[:, :], 50, axis=0)
+    p75 = np.nanpercentile(y_n[:, :], 75, axis=0)
+    p975 = np.nanpercentile(y_n[:, :], 97.5, axis=0)
 
     # Convert to histograms
     n_traces, n_samples = y_n.shape
@@ -155,8 +162,16 @@ def profile_y(x_n, y_n, x_obs, y_obs, best, i, path):
     # No need to loop just use reshape !
     # Result: a point (t, amp) is (sample_t[i], sample_a[i]
     # ----------------------------------------------------
-    sample_t = np.tile(x_n, n_traces)
-    sample_a = y_n.flatten()
+    # sample_t = np.tile(x_n, n_traces)
+    # sample_a = y_n.flatten()
+    # 1. Filter out NaN values from y_n and their corresponding x_n entries
+    valid_mask = ~np.isnan(y_n).any(axis=1)    
+    valid_y_n = y_n[valid_mask]
+    valid_x_n = np.tile(x_n, valid_y_n.shape[0])
+
+    # 2. Flattening the valid arrays for 2D histogram
+    sample_t = valid_x_n
+    sample_a = valid_y_n.flatten()
 
     # 2- define the bins
     # ------------------
@@ -164,7 +179,8 @@ def profile_y(x_n, y_n, x_obs, y_obs, best, i, path):
     xbins = np.linspace(x_n[0] - dx/2., x_n[-1] + dx/2., n_samples + 1)
     #y_concat = np.hstack((y_obs, y_n))
     ymin_obs, ymax_obs = np.amin(y_obs), np.amax(y_obs)
-    ymin_n, ymax_n = np.amin(y_n), np.amax(y_n)
+    #ymin_n, ymax_n = np.amin(y_n), np.amax(y_n) modif heterogen
+    ymin_n, ymax_n = np.nanmin(y_n), np.nanmax(y_n)
     ymin, ymax = min(ymin_obs, ymin_n), max(ymax_obs, ymax_n)
     ybins = np.linspace(ymin, ymax + (ymax-ymin)*0.3, 200)
     #ybins = np.linspace(-25, 125, 150)
@@ -173,6 +189,7 @@ def profile_y(x_n, y_n, x_obs, y_obs, best, i, path):
     # 3- just use np.histogram2d and shape it for plotting
     # ----------------------------------------------------
     cmin = 0.00001
+    # hist, xedges, yedges = np.histogram2d(sample_a, sample_t, bins=[xbins, ybins])
     hist, xedges, yedges = np.histogram2d(sample_a, sample_t, bins=[xbins, ybins])
 
     range_only = np.copy(hist)
