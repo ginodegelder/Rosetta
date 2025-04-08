@@ -86,10 +86,15 @@ def exponential_covar_1d(n, sigma, corr_l, dx=1, gamma=2, truncate=None):
     covar : 2D numpy array
         The covariance matrix
     """
-    covar = np.empty((n, n))
-    for i in range(n):
-        for j in range(n):
-            r = abs(int(j-i))*float(dx)
-            covar[i, j] = k_exponential(
-                r, corr_l, gamma=gamma, truncate=truncate) * sigma**2
+    # If no correlation length, sigma only
+    if corr_l == 0:
+        covar = np.identity(n) * sigma**2
+    
+    else:
+        covar = np.empty((n, n))
+        for i in range(n):
+            for j in range(n):
+                r = abs(int(j-i))*float(dx)
+                covar[i, j] = k_exponential(
+                    r, corr_l, gamma=gamma, truncate=truncate) * sigma**2
     return covar

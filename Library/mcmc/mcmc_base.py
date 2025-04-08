@@ -7,7 +7,7 @@
 
 import warnings
 import numpy as np
-import arviz
+from arviz import dict_to_dataset, from_dict
 import pickle
 
 SAMPLE_STATS = [
@@ -197,9 +197,14 @@ class MCMCBase:
                      'duration': self.duration}
         if format == 'xarray':
             data['x'] = np.expand_dims(self.samples, axis=0)
-            dataset = arviz.dict_to_dataset(data, attrs=attrs)
+            dataset = dict_to_dataset(data, attrs=attrs)
         elif format == 'arviz':
             post = {'x': np.expand_dims(self.samples, axis=0)}
+            
+            data_post_pred = dict(self.posterior_predictive)
+            for key in data_post_pred:
+                data_post_pred[key] = np.expand_dims(data_post_pred[key], axis=0)
+            
             ll = {}
             ss = {}
             for key in data.keys():
@@ -207,9 +212,9 @@ class MCMCBase:
                     ll = {'log_likelihood': data['loglikelihood']}
                 if key in SAMPLE_STATS:
                     ss[key] = data[key]
-            dataset = arviz.from_dict(
+            dataset = from_dict(
                 posterior=post, log_likelihood=ll, sample_stats=ss,
-                posterior_predictive=self.posterior_predictive,
+                posterior_predictive=data_post_pred, #self.posterior_predictive,
                 observed_data=self.observed_data)
         return dataset
 
